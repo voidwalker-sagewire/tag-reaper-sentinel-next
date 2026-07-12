@@ -6,7 +6,7 @@
     android:background="#080b10"
     android:padding="8dp">
 
-    <!-- Compact single-line status header -->
+    <!-- Compact status and session header -->
     <TextView
         android:id="@+id/txtHeader"
         android:layout_width="match_parent"
@@ -22,9 +22,9 @@
         android:textStyle="bold"
         android:singleLine="true"
         android:ellipsize="end"
-        android:layout_marginBottom="6dp" />
+        android:layout_marginBottom="5dp" />
 
-    <!-- Primary controls -->
+    <!-- Main reader and session controls -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -89,17 +89,27 @@
             android:layout_width="0dp"
             android:layout_height="42dp"
             android:layout_weight="1"
-            android:text="Clear Test"
+            android:text="Clear"
             android:textSize="11sp"
             android:padding="2dp" />
     </LinearLayout>
 
-    <!-- History and export controls -->
+    <!-- Profile, history, and export controls -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginBottom="5dp">
+        android:layout_marginBottom="4dp">
+
+        <Button
+            android:id="@+id/btnProfiles"
+            android:layout_width="0dp"
+            android:layout_height="38dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="4dp"
+            android:text="Profiles"
+            android:textSize="10sp"
+            android:padding="2dp" />
 
         <Button
             android:id="@+id/btnHistory"
@@ -108,7 +118,7 @@
             android:layout_weight="1"
             android:layout_marginEnd="4dp"
             android:text="History"
-            android:textSize="11sp"
+            android:textSize="10sp"
             android:padding="2dp" />
 
         <Button
@@ -117,8 +127,8 @@
             android:layout_height="38dp"
             android:layout_weight="1"
             android:layout_marginEnd="4dp"
-            android:text="Export CSV"
-            android:textSize="11sp"
+            android:text="CSV"
+            android:textSize="10sp"
             android:padding="2dp"
             android:enabled="false" />
 
@@ -128,8 +138,8 @@
             android:layout_height="38dp"
             android:layout_weight="1"
             android:layout_marginEnd="4dp"
-            android:text="Export JSON"
-            android:textSize="11sp"
+            android:text="JSON"
+            android:textSize="10sp"
             android:padding="2dp"
             android:enabled="false" />
 
@@ -139,12 +149,12 @@
             android:layout_height="38dp"
             android:layout_weight="1"
             android:text="Share"
-            android:textSize="11sp"
+            android:textSize="10sp"
             android:padding="2dp"
             android:enabled="false" />
     </LinearLayout>
 
-    <!-- Antenna enable switches -->
+    <!-- Antenna enable controls -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -203,16 +213,15 @@
             android:checked="true" />
     </LinearLayout>
 
-    <!-- Four compact power controls on one row -->
+    <!-- Four independent antenna power controls -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:background="#0f172a"
         android:padding="4dp"
-        android:layout_marginBottom="5dp">
+        android:layout_marginBottom="4dp">
 
-        <!-- ANT 1 power -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -225,7 +234,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:text="ANT 1  •  30 dBm"
+                android:text="ANT 1 • 30 dBm"
                 android:textColor="#f8fafc"
                 android:textSize="11sp"
                 android:textStyle="bold" />
@@ -238,7 +247,6 @@
                 android:progress="25" />
         </LinearLayout>
 
-        <!-- ANT 2 power -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -251,7 +259,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:text="ANT 2  •  30 dBm"
+                android:text="ANT 2 • 30 dBm"
                 android:textColor="#f8fafc"
                 android:textSize="11sp"
                 android:textStyle="bold" />
@@ -264,7 +272,6 @@
                 android:progress="25" />
         </LinearLayout>
 
-        <!-- ANT 3 power -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -277,7 +284,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:text="ANT 3  •  30 dBm"
+                android:text="ANT 3 • 30 dBm"
                 android:textColor="#f8fafc"
                 android:textSize="11sp"
                 android:textStyle="bold" />
@@ -290,7 +297,6 @@
                 android:progress="25" />
         </LinearLayout>
 
-        <!-- ANT 4 power -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -302,7 +308,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:text="ANT 4  •  30 dBm"
+                android:text="ANT 4 • 30 dBm"
                 android:textColor="#f8fafc"
                 android:textSize="11sp"
                 android:textStyle="bold" />
@@ -316,7 +322,43 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Tag list header -->
+    <!-- Search and sort controls -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="38dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="#111827"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp"
+        android:layout_marginBottom="2dp">
+
+        <EditText
+            android:id="@+id/editSearch"
+            android:layout_width="0dp"
+            android:layout_height="34dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="6dp"
+            android:background="#1f2937"
+            android:hint="Search EPC or tag number"
+            android:textColor="#f8fafc"
+            android:textColorHint="#94a3b8"
+            android:textSize="12sp"
+            android:singleLine="true"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:inputType="text" />
+
+        <Button
+            android:id="@+id/btnSort"
+            android:layout_width="120dp"
+            android:layout_height="34dp"
+            android:text="Sort: First"
+            android:textSize="10sp"
+            android:padding="2dp" />
+    </LinearLayout>
+
+    <!-- Tag ledger summary -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="32dp"
@@ -353,7 +395,7 @@
             android:textSize="12sp" />
     </LinearLayout>
 
-    <!-- Main scrolling tag ledger gets all remaining height -->
+    <!-- Main scrolling tag ledger -->
     <ListView
         android:id="@+id/listTags"
         android:layout_width="match_parent"
