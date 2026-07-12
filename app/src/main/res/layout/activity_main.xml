@@ -3,221 +3,368 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#0a0a0a"
-    android:padding="12dp">
+    android:background="#080b10"
+    android:padding="8dp">
 
+    <!-- Compact single-line status header -->
     <TextView
+        android:id="@+id/txtHeader"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="TAG REAPER SENTINEL"
-        android:textColor="#4a9eff"
-        android:textSize="22sp"
+        android:minHeight="34dp"
+        android:gravity="center_vertical"
+        android:paddingStart="10dp"
+        android:paddingEnd="10dp"
+        android:background="#111827"
+        android:text="TAG REAPER SENTINEL | Not connected | No session"
+        android:textColor="#38bdf8"
+        android:textSize="15sp"
         android:textStyle="bold"
-        android:layout_marginBottom="4dp" />
+        android:singleLine="true"
+        android:ellipsize="end"
+        android:layout_marginBottom="6dp" />
 
-    <TextView
-        android:id="@+id/txtStatus"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Not connected"
-        android:textColor="#888888"
-        android:textSize="14sp"
-        android:layout_marginBottom="4dp" />
-
-    <TextView
-        android:id="@+id/txtSession"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Session: none"
-        android:textColor="#f0f0f0"
-        android:textSize="13sp"
-        android:layout_marginBottom="10dp" />
-
+    <!-- Primary controls -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginBottom="6dp">
+        android:layout_marginBottom="4dp">
 
         <Button
             android:id="@+id/btnConnect"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="42dp"
             android:layout_weight="1"
-            android:layout_marginEnd="6dp"
-            android:text="Connect" />
+            android:layout_marginEnd="4dp"
+            android:text="Connect"
+            android:textSize="11sp"
+            android:padding="2dp" />
 
         <Button
             android:id="@+id/btnNewSession"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="42dp"
             android:layout_weight="1"
-            android:text="New Session" />
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginBottom="6dp">
+            android:layout_marginEnd="4dp"
+            android:text="New Session"
+            android:textSize="11sp"
+            android:padding="2dp" />
 
         <Button
             android:id="@+id/btnStart"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="42dp"
             android:layout_weight="1"
-            android:layout_marginEnd="6dp"
+            android:layout_marginEnd="4dp"
             android:text="Start Scan"
+            android:textSize="11sp"
+            android:padding="2dp"
             android:enabled="false" />
 
         <Button
             android:id="@+id/btnPause"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="42dp"
             android:layout_weight="1"
+            android:layout_marginEnd="4dp"
             android:text="Pause"
+            android:textSize="11sp"
+            android:padding="2dp"
             android:enabled="false" />
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginBottom="10dp">
 
         <Button
             android:id="@+id/btnEndSession"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="42dp"
             android:layout_weight="1"
-            android:layout_marginEnd="6dp"
+            android:layout_marginEnd="4dp"
             android:text="End Session"
+            android:textSize="11sp"
+            android:padding="2dp"
             android:enabled="false" />
 
         <Button
             android:id="@+id/btnClear"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="42dp"
             android:layout_weight="1"
-            android:text="Clear Test Data" />
+            android:text="Clear Test"
+            android:textSize="11sp"
+            android:padding="2dp" />
     </LinearLayout>
 
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Antennas"
-        android:textColor="#4a9eff"
-        android:textSize="12sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="4dp" />
-
+    <!-- History and export controls -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginBottom="10dp">
+        android:layout_marginBottom="5dp">
+
+        <Button
+            android:id="@+id/btnHistory"
+            android:layout_width="0dp"
+            android:layout_height="38dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="4dp"
+            android:text="History"
+            android:textSize="11sp"
+            android:padding="2dp" />
+
+        <Button
+            android:id="@+id/btnExportCsv"
+            android:layout_width="0dp"
+            android:layout_height="38dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="4dp"
+            android:text="Export CSV"
+            android:textSize="11sp"
+            android:padding="2dp"
+            android:enabled="false" />
+
+        <Button
+            android:id="@+id/btnExportJson"
+            android:layout_width="0dp"
+            android:layout_height="38dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="4dp"
+            android:text="Export JSON"
+            android:textSize="11sp"
+            android:padding="2dp"
+            android:enabled="false" />
+
+        <Button
+            android:id="@+id/btnShare"
+            android:layout_width="0dp"
+            android:layout_height="38dp"
+            android:layout_weight="1"
+            android:text="Share"
+            android:textSize="11sp"
+            android:padding="2dp"
+            android:enabled="false" />
+    </LinearLayout>
+
+    <!-- Antenna enable switches -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="#0f172a"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp">
+
+        <TextView
+            android:layout_width="80dp"
+            android:layout_height="wrap_content"
+            android:text="ANTENNAS"
+            android:textColor="#38bdf8"
+            android:textSize="11sp"
+            android:textStyle="bold" />
 
         <CheckBox
             android:id="@+id/chkAnt1"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="36dp"
             android:layout_weight="1"
             android:text="ANT 1"
-            android:textColor="#f0f0f0"
+            android:textColor="#e5e7eb"
+            android:textSize="11sp"
             android:checked="true" />
 
         <CheckBox
             android:id="@+id/chkAnt2"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="36dp"
             android:layout_weight="1"
             android:text="ANT 2"
-            android:textColor="#f0f0f0"
+            android:textColor="#e5e7eb"
+            android:textSize="11sp"
             android:checked="true" />
 
         <CheckBox
             android:id="@+id/chkAnt3"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="36dp"
             android:layout_weight="1"
             android:text="ANT 3"
-            android:textColor="#f0f0f0"
+            android:textColor="#e5e7eb"
+            android:textSize="11sp"
             android:checked="true" />
 
         <CheckBox
             android:id="@+id/chkAnt4"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="36dp"
             android:layout_weight="1"
             android:text="ANT 4"
-            android:textColor="#f0f0f0"
+            android:textColor="#e5e7eb"
+            android:textSize="11sp"
             android:checked="true" />
     </LinearLayout>
 
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Antenna Power"
-        android:textColor="#4a9eff"
-        android:textSize="12sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="4dp" />
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal">
-        <TextView android:layout_width="52dp" android:layout_height="wrap_content" android:text="ANT 1" android:textColor="#f0f0f0"/>
-        <SeekBar android:id="@+id/seekAnt1Power" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"/>
-        <TextView android:id="@+id/txtAnt1Power" android:layout_width="64dp" android:layout_height="wrap_content" android:text="30 dBm" android:textColor="#f0f0f0"/>
-    </LinearLayout>
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-        <TextView android:layout_width="52dp" android:layout_height="wrap_content" android:text="ANT 2" android:textColor="#f0f0f0"/>
-        <SeekBar android:id="@+id/seekAnt2Power" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"/>
-        <TextView android:id="@+id/txtAnt2Power" android:layout_width="64dp" android:layout_height="wrap_content" android:text="30 dBm" android:textColor="#f0f0f0"/>
-    </LinearLayout>
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-        <TextView android:layout_width="52dp" android:layout_height="wrap_content" android:text="ANT 3" android:textColor="#f0f0f0"/>
-        <SeekBar android:id="@+id/seekAnt3Power" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"/>
-        <TextView android:id="@+id/txtAnt3Power" android:layout_width="64dp" android:layout_height="wrap_content" android:text="30 dBm" android:textColor="#f0f0f0"/>
-    </LinearLayout>
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginBottom="10dp">
-        <TextView android:layout_width="52dp" android:layout_height="wrap_content" android:text="ANT 4" android:textColor="#f0f0f0"/>
-        <SeekBar android:id="@+id/seekAnt4Power" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"/>
-        <TextView android:id="@+id/txtAnt4Power" android:layout_width="64dp" android:layout_height="wrap_content" android:text="30 dBm" android:textColor="#f0f0f0"/>
-    </LinearLayout>
-
+    <!-- Four compact power controls on one row -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginBottom="10dp">
+        android:background="#0f172a"
+        android:padding="4dp"
+        android:layout_marginBottom="5dp">
+
+        <!-- ANT 1 power -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginEnd="4dp">
+
+            <TextView
+                android:id="@+id/txtAnt1Power"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="ANT 1  •  30 dBm"
+                android:textColor="#f8fafc"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <SeekBar
+                android:id="@+id/seekAnt1Power"
+                android:layout_width="match_parent"
+                android:layout_height="30dp"
+                android:max="25"
+                android:progress="25" />
+        </LinearLayout>
+
+        <!-- ANT 2 power -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginEnd="4dp">
+
+            <TextView
+                android:id="@+id/txtAnt2Power"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="ANT 2  •  30 dBm"
+                android:textColor="#f8fafc"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <SeekBar
+                android:id="@+id/seekAnt2Power"
+                android:layout_width="match_parent"
+                android:layout_height="30dp"
+                android:max="25"
+                android:progress="25" />
+        </LinearLayout>
+
+        <!-- ANT 3 power -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginEnd="4dp">
+
+            <TextView
+                android:id="@+id/txtAnt3Power"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="ANT 3  •  30 dBm"
+                android:textColor="#f8fafc"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <SeekBar
+                android:id="@+id/seekAnt3Power"
+                android:layout_width="match_parent"
+                android:layout_height="30dp"
+                android:max="25"
+                android:progress="25" />
+        </LinearLayout>
+
+        <!-- ANT 4 power -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/txtAnt4Power"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:text="ANT 4  •  30 dBm"
+                android:textColor="#f8fafc"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <SeekBar
+                android:id="@+id/seekAnt4Power"
+                android:layout_width="match_parent"
+                android:layout_height="30dp"
+                android:max="25"
+                android:progress="25" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Tag list header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="32dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="#111827"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="TAG OBSERVATIONS"
+            android:textColor="#38bdf8"
+            android:textSize="12sp"
+            android:textStyle="bold" />
 
         <TextView
             android:id="@+id/txtTotalReads"
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Total Reads: 0"
-            android:textColor="#f0f0f0"
-            android:textSize="14sp" />
+            android:layout_marginEnd="18dp"
+            android:text="Reads: 0"
+            android:textColor="#e5e7eb"
+            android:textSize="12sp" />
 
         <TextView
             android:id="@+id/txtUniqueTags"
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Unique Tags: 0"
-            android:textColor="#4a9eff"
-            android:textSize="14sp" />
+            android:text="Tags: 0"
+            android:textColor="#e5e7eb"
+            android:textSize="12sp" />
     </LinearLayout>
 
+    <!-- Main scrolling tag ledger gets all remaining height -->
     <ListView
         android:id="@+id/listTags"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:divider="#2a2a2a"
-        android:dividerHeight="1dp" />
+        android:background="#05070a"
+        android:divider="#263244"
+        android:dividerHeight="1dp"
+        android:paddingTop="2dp"
+        android:paddingBottom="2dp"
+        android:fastScrollEnabled="true"
+        android:scrollbars="vertical" />
 
 </LinearLayout>
