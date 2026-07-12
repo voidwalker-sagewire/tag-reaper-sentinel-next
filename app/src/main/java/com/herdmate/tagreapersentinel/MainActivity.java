@@ -6,11 +6,18 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.Editable;
+import android.text.InputType;
+import android.text.TextWatcher;
+import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
+import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.SeekBar;
+import android.widget.Spinner;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AlertDialog;
@@ -29,6 +36,8 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -46,6 +55,18 @@ public class MainActivity extends AppCompatActivity {
 
     private static final String PREF_SESSION_HISTORY =
             "session_history";
+
+    private static final String PREF_READER_PROFILES =
+            "reader_profiles";
+
+    private static final String PREF_LAST_SITE =
+            "last_site";
+
+    private static final String PREF_LAST_OPERATOR =
+            "last_operator";
+
+    private static final String PREF_LAST_PROFILE =
+            "last_profile";
 
     private static final long SAVE_THROTTLE_MS = 1000L;
     private static final long DISPLAY_THROTTLE_MS = 250L;
@@ -65,10 +86,12 @@ public class MainActivity extends AppCompatActivity {
     private Button btnPause;
     private Button btnEndSession;
     private Button btnClear;
+    private Button btnProfiles;
     private Button btnHistory;
     private Button btnExportCsv;
     private Button btnExportJson;
     private Button btnShare;
+    private Button btnSort;
 
     private CheckBox chkAnt1;
     private CheckBox chkAnt2;
@@ -89,6 +112,8 @@ public class MainActivity extends AppCompatActivity {
     private TextView txtTotalReads;
     private TextView txtUniqueTags;
 
+    private EditText editSearch;
+
     private ListView listTags;
     private ArrayAdapter<String> adapter;
 
@@ -103,7 +128,15 @@ public class MainActivity extends AppCompatActivity {
     private SessionState sessionState =
             SessionState.NO_SESSION;
 
+    private SortMode sortMode =
+            SortMode.FIRST_SEEN;
+
     private String sessionId;
+    private String sessionName = "";
+    private String sessionSite = "";
+    private String sessionOperator = "";
+    private String sessionNotes = "";
+    private String sessionProfileName = "";
 
     private long sessionStartedAt;
     private long sessionEndedAt;
@@ -126,7 +159,6 @@ public class MainActivity extends AppCompatActivity {
 
     private final Runnable sessionClockRunnable =
             new Runnable() {
-
                 @Override
                 public void run() {
                     updateHeader();
@@ -162,6 +194,29 @@ public class MainActivity extends AppCompatActivity {
         SCANNING,
         PAUSED,
         ENDED
+    }
+
+    private enum SortMode {
+        FIRST_SEEN,
+        MOST_READS,
+        EPC
+    }
+
+    private static class ReaderProfile {
+        String name;
+        String description;
+
+        boolean ant1Enabled;
+        boolean ant2Enabled;
+        boolean ant3Enabled;
+        boolean ant4Enabled;
+
+        int ant1Power;
+        int ant2Power;
+        int ant3Power;
+        int ant4Power;
+
+        long lastUsedAt;
     }
 
     private static class AntennaRecord {
@@ -206,6 +261,7 @@ public class MainActivity extends AppCompatActivity {
 
         bindViews();
         setupPowerControls();
+        setupSearchAndSort();
 
         adapter =
                 new ArrayAdapter<>(
@@ -221,7 +277,7 @@ public class MainActivity extends AppCompatActivity {
         );
 
         btnNewSession.setOnClickListener(
-                view -> createNewSession()
+                view -> showNewSessionDialog()
         );
 
         btnStart.setOnClickListener(
@@ -238,6 +294,10 @@ public class MainActivity extends AppCompatActivity {
 
         btnClear.setOnClickListener(
                 view -> clearSession()
+        );
+
+        btnProfiles.setOnClickListener(
+                view -> showProfilesDialog()
         );
 
         btnHistory.setOnClickListener(
@@ -267,134 +327,141 @@ public class MainActivity extends AppCompatActivity {
 
     private void bindViews() {
         btnConnect =
-                findViewById(
-                        R.id.btnConnect
-                );
+                findViewById(R.id.btnConnect);
 
         btnNewSession =
-                findViewById(
-                        R.id.btnNewSession
-                );
+                findViewById(R.id.btnNewSession);
 
         btnStart =
-                findViewById(
-                        R.id.btnStart
-                );
+                findViewById(R.id.btnStart);
 
         btnPause =
-                findViewById(
-                        R.id.btnPause
-                );
+                findViewById(R.id.btnPause);
 
         btnEndSession =
-                findViewById(
-                        R.id.btnEndSession
-                );
+                findViewById(R.id.btnEndSession);
 
         btnClear =
-                findViewById(
-                        R.id.btnClear
-                );
+                findViewById(R.id.btnClear);
+
+        btnProfiles =
+                findViewById(R.id.btnProfiles);
 
         btnHistory =
-                findViewById(
-                        R.id.btnHistory
-                );
+                findViewById(R.id.btnHistory);
 
         btnExportCsv =
-                findViewById(
-                        R.id.btnExportCsv
-                );
+                findViewById(R.id.btnExportCsv);
 
         btnExportJson =
-                findViewById(
-                        R.id.btnExportJson
-                );
+                findViewById(R.id.btnExportJson);
 
         btnShare =
-                findViewById(
-                        R.id.btnShare
-                );
+                findViewById(R.id.btnShare);
+
+        btnSort =
+                findViewById(R.id.btnSort);
 
         chkAnt1 =
-                findViewById(
-                        R.id.chkAnt1
-                );
+                findViewById(R.id.chkAnt1);
 
         chkAnt2 =
-                findViewById(
-                        R.id.chkAnt2
-                );
+                findViewById(R.id.chkAnt2);
 
         chkAnt3 =
-                findViewById(
-                        R.id.chkAnt3
-                );
+                findViewById(R.id.chkAnt3);
 
         chkAnt4 =
-                findViewById(
-                        R.id.chkAnt4
-                );
+                findViewById(R.id.chkAnt4);
 
         seekAnt1Power =
-                findViewById(
-                        R.id.seekAnt1Power
-                );
+                findViewById(R.id.seekAnt1Power);
 
         seekAnt2Power =
-                findViewById(
-                        R.id.seekAnt2Power
-                );
+                findViewById(R.id.seekAnt2Power);
 
         seekAnt3Power =
-                findViewById(
-                        R.id.seekAnt3Power
-                );
+                findViewById(R.id.seekAnt3Power);
 
         seekAnt4Power =
-                findViewById(
-                        R.id.seekAnt4Power
-                );
+                findViewById(R.id.seekAnt4Power);
 
         txtAnt1Power =
-                findViewById(
-                        R.id.txtAnt1Power
-                );
+                findViewById(R.id.txtAnt1Power);
 
         txtAnt2Power =
-                findViewById(
-                        R.id.txtAnt2Power
-                );
+                findViewById(R.id.txtAnt2Power);
 
         txtAnt3Power =
-                findViewById(
-                        R.id.txtAnt3Power
-                );
+                findViewById(R.id.txtAnt3Power);
 
         txtAnt4Power =
-                findViewById(
-                        R.id.txtAnt4Power
-                );
+                findViewById(R.id.txtAnt4Power);
 
         txtHeader =
-                findViewById(
-                        R.id.txtHeader
-                );
+                findViewById(R.id.txtHeader);
 
         txtTotalReads =
-                findViewById(
-                        R.id.txtTotalReads
-                );
+                findViewById(R.id.txtTotalReads);
 
         txtUniqueTags =
-                findViewById(
-                        R.id.txtUniqueTags
-                );
+                findViewById(R.id.txtUniqueTags);
+
+        editSearch =
+                findViewById(R.id.editSearch);
 
         listTags =
-                findViewById(
-                        R.id.listTags
-                );
+                findViewById(R.id.listTags);
+    }
+
+    private void setupSearchAndSort() {
+        editSearch.addTextChangedListener(
+                new TextWatcher() {
+                    @Override
+                    public void beforeTextChanged(
+                            CharSequence value,
+                            int start,
+                            int count,
+                            int after
+                    ) {
+                    }
+
+                    @Override
+                    public void onTextChanged(
+                            CharSequence value,
+                            int start,
+                            int before,
+                            int count
+                    ) {
+                        refreshDisplay();
+                    }
+
+                    @Override
+                    public void afterTextChanged(
+                            Editable value
+                    ) {
+                    }
+                }
+        );
+
+        btnSort.setOnClickListener(
+                view -> cycleSortMode()
+        );
+    }
+
+    private void cycleSortMode() {
+        if (sortMode == SortMode.FIRST_SEEN) {
+            sortMode = SortMode.MOST_READS;
+            btnSort.setText("Sort: Reads");
+        } else if (sortMode == SortMode.MOST_READS) {
+            sortMode = SortMode.EPC;
+            btnSort.setText("Sort: EPC");
+        } else {
+            sortMode = SortMode.FIRST_SEEN;
+            btnSort.setText("Sort: First");
+        }
+
+        refreshDisplay();
     }
 
     private void setupPowerControls() {
@@ -449,7 +516,6 @@ public class MainActivity extends AppCompatActivity {
 
         seekBar.setOnSeekBarChangeListener(
                 new SeekBar.OnSeekBarChangeListener() {
-
                     @Override
                     public void onProgressChanged(
                             SeekBar bar,
@@ -487,7 +553,7 @@ public class MainActivity extends AppCompatActivity {
         label.setText(
                 String.format(
                         Locale.US,
-                        "ANT %d  •  %d dBm",
+                        "ANT %d • %d dBm",
                         antennaNumber,
                         power
                 )
@@ -501,6 +567,914 @@ public class MainActivity extends AppCompatActivity {
                 + seekBar.getProgress();
     }
 
+    private void showNewSessionDialog() {
+        if (sessionState
+                == SessionState.SCANNING) {
+
+            setStatus(
+                    "Pause or end the current session first"
+            );
+
+            return;
+        }
+
+        int padding =
+                (int) (
+                        18
+                                * getResources()
+                                .getDisplayMetrics()
+                                .density
+                );
+
+        LinearLayout form =
+                new LinearLayout(this);
+
+        form.setOrientation(
+                LinearLayout.VERTICAL
+        );
+
+        form.setPadding(
+                padding,
+                8,
+                padding,
+                0
+        );
+
+        EditText editName =
+                new EditText(this);
+
+        editName.setHint(
+                "Session name"
+        );
+
+        editName.setSingleLine(true);
+
+        EditText editSite =
+                new EditText(this);
+
+        editSite.setHint(
+                "Farm or site"
+        );
+
+        editSite.setSingleLine(true);
+
+        editSite.setText(
+                preferences.getString(
+                        PREF_LAST_SITE,
+                        ""
+                )
+        );
+
+        EditText editOperator =
+                new EditText(this);
+
+        editOperator.setHint(
+                "Operator"
+        );
+
+        editOperator.setSingleLine(true);
+
+        editOperator.setText(
+                preferences.getString(
+                        PREF_LAST_OPERATOR,
+                        ""
+                )
+        );
+
+        EditText editNotes =
+                new EditText(this);
+
+        editNotes.setHint(
+                "Notes"
+        );
+
+        editNotes.setMinLines(2);
+        editNotes.setMaxLines(4);
+
+        editNotes.setInputType(
+                InputType.TYPE_CLASS_TEXT
+                        | InputType.TYPE_TEXT_FLAG_MULTI_LINE
+        );
+
+        TextView profileLabel =
+                new TextView(this);
+
+        profileLabel.setText(
+                "Reader profile"
+        );
+
+        profileLabel.setPadding(
+                0,
+                12,
+                0,
+                4
+        );
+
+        Spinner profileSpinner =
+                new Spinner(this);
+
+        List<ReaderProfile> profiles =
+                loadProfiles();
+
+        List<String> profileNames =
+                new ArrayList<>();
+
+        profileNames.add(
+                "Current antenna settings"
+        );
+
+        for (ReaderProfile profile
+                : profiles) {
+
+            profileNames.add(
+                    profile.name
+            );
+        }
+
+        ArrayAdapter<String> profileAdapter =
+                new ArrayAdapter<>(
+                        this,
+                        android.R.layout
+                                .simple_spinner_item,
+                        profileNames
+                );
+
+        profileAdapter.setDropDownViewResource(
+                android.R.layout
+                        .simple_spinner_dropdown_item
+        );
+
+        profileSpinner.setAdapter(
+                profileAdapter
+        );
+
+        String lastProfile =
+                preferences.getString(
+                        PREF_LAST_PROFILE,
+                        ""
+                );
+
+        for (int index = 0;
+             index < profileNames.size();
+             index++) {
+
+            if (profileNames
+                    .get(index)
+                    .equals(lastProfile)) {
+
+                profileSpinner.setSelection(
+                        index
+                );
+
+                break;
+            }
+        }
+
+        form.addView(editName);
+        form.addView(editSite);
+        form.addView(editOperator);
+        form.addView(editNotes);
+        form.addView(profileLabel);
+        form.addView(profileSpinner);
+
+        AlertDialog dialog =
+                new AlertDialog.Builder(this)
+                        .setTitle(
+                                "New Field Session"
+                        )
+                        .setView(form)
+                        .setNegativeButton(
+                                "Cancel",
+                                null
+                        )
+                        .setPositiveButton(
+                                "Create",
+                                null
+                        )
+                        .create();
+
+        dialog.setOnShowListener(
+                ignored -> dialog
+                        .getButton(
+                                AlertDialog
+                                        .BUTTON_POSITIVE
+                        )
+                        .setOnClickListener(
+                                view -> {
+                                    String name =
+                                            editName
+                                                    .getText()
+                                                    .toString()
+                                                    .trim();
+
+                                    if (name.isEmpty()) {
+                                        editName.setError(
+                                                "Session name is required"
+                                        );
+
+                                        return;
+                                    }
+
+                                    String selectedProfile =
+                                            profileSpinner
+                                                    .getSelectedItem()
+                                                    .toString();
+
+                                    if (!selectedProfile.equals(
+                                            "Current antenna settings"
+                                    )) {
+                                        ReaderProfile profile =
+                                                findProfileByName(
+                                                        selectedProfile
+                                                );
+
+                                        if (profile != null) {
+                                            applyProfile(profile);
+                                            profile.lastUsedAt =
+                                                    System.currentTimeMillis();
+
+                                            saveOrReplaceProfile(
+                                                    profile
+                                            );
+                                        }
+                                    }
+
+                                    createNewSession(
+                                            name,
+                                            editSite
+                                                    .getText()
+                                                    .toString()
+                                                    .trim(),
+                                            editOperator
+                                                    .getText()
+                                                    .toString()
+                                                    .trim(),
+                                            editNotes
+                                                    .getText()
+                                                    .toString()
+                                                    .trim(),
+                                            selectedProfile.equals(
+                                                    "Current antenna settings"
+                                            )
+                                                    ? ""
+                                                    : selectedProfile
+                                    );
+
+                                    preferences
+                                            .edit()
+                                            .putString(
+                                                    PREF_LAST_SITE,
+                                                    sessionSite
+                                            )
+                                            .putString(
+                                                    PREF_LAST_OPERATOR,
+                                                    sessionOperator
+                                            )
+                                            .putString(
+                                                    PREF_LAST_PROFILE,
+                                                    selectedProfile
+                                            )
+                                            .apply();
+
+                                    dialog.dismiss();
+                                }
+                        )
+        );
+
+        dialog.show();
+    }
+
+    private void createNewSession(
+            String name,
+            String site,
+            String operator,
+            String notes,
+            String profileName
+    ) {
+        uniqueTags.clear();
+        totalReads = 0;
+
+        sessionId =
+                UUID.randomUUID().toString();
+
+        sessionName = name;
+        sessionSite = site;
+        sessionOperator = operator;
+        sessionNotes = notes;
+        sessionProfileName = profileName;
+
+        sessionStartedAt =
+                System.currentTimeMillis();
+
+        sessionEndedAt = 0L;
+        pauseStartedAt = 0L;
+        totalPausedMillis = 0L;
+        totalActiveMillis = 0L;
+        activeStartedAt = 0L;
+
+        sessionState =
+                SessionState.READY;
+
+        editSearch.setText("");
+
+        saveSessionNow();
+        refreshDisplay();
+
+        setStatus(
+                "New session ready"
+        );
+
+        updateControls();
+    }
+
+    private void showProfilesDialog() {
+        List<ReaderProfile> profiles =
+                loadProfiles();
+
+        List<String> actions =
+                new ArrayList<>();
+
+        actions.add(
+                "Save current settings as new profile"
+        );
+
+        for (ReaderProfile profile
+                : profiles) {
+
+            actions.add(
+                    "Load: " + profile.name
+            );
+        }
+
+        actions.add(
+                "Delete a profile"
+        );
+
+        new AlertDialog.Builder(this)
+                .setTitle(
+                        "Reader Profiles"
+                )
+                .setItems(
+                        actions.toArray(
+                                new String[0]
+                        ),
+                        (dialog, index) -> {
+                            if (index == 0) {
+                                showSaveProfileDialog();
+                                return;
+                            }
+
+                            if (index
+                                    == actions.size() - 1) {
+
+                                showDeleteProfileDialog();
+                                return;
+                            }
+
+                            ReaderProfile profile =
+                                    profiles.get(
+                                            index - 1
+                                    );
+
+                            applyProfile(profile);
+
+                            profile.lastUsedAt =
+                                    System.currentTimeMillis();
+
+                            saveOrReplaceProfile(
+                                    profile
+                            );
+
+                            setStatus(
+                                    "Profile loaded: "
+                                            + profile.name
+                            );
+                        }
+                )
+                .setNegativeButton(
+                        "Close",
+                        null
+                )
+                .show();
+    }
+
+    private void showSaveProfileDialog() {
+        int padding =
+                (int) (
+                        18
+                                * getResources()
+                                .getDisplayMetrics()
+                                .density
+                );
+
+        LinearLayout form =
+                new LinearLayout(this);
+
+        form.setOrientation(
+                LinearLayout.VERTICAL
+        );
+
+        form.setPadding(
+                padding,
+                8,
+                padding,
+                0
+        );
+
+        EditText editName =
+                new EditText(this);
+
+        editName.setHint(
+                "Profile name"
+        );
+
+        editName.setSingleLine(true);
+
+        EditText editDescription =
+                new EditText(this);
+
+        editDescription.setHint(
+                "Description, optional"
+        );
+
+        editDescription.setMinLines(2);
+        editDescription.setMaxLines(3);
+
+        form.addView(editName);
+        form.addView(editDescription);
+
+        AlertDialog dialog =
+                new AlertDialog.Builder(this)
+                        .setTitle(
+                                "Save Reader Profile"
+                        )
+                        .setView(form)
+                        .setNegativeButton(
+                                "Cancel",
+                                null
+                        )
+                        .setPositiveButton(
+                                "Save",
+                                null
+                        )
+                        .create();
+
+        dialog.setOnShowListener(
+                ignored -> dialog
+                        .getButton(
+                                AlertDialog
+                                        .BUTTON_POSITIVE
+                        )
+                        .setOnClickListener(
+                                view -> {
+                                    String name =
+                                            editName
+                                                    .getText()
+                                                    .toString()
+                                                    .trim();
+
+                                    if (name.isEmpty()) {
+                                        editName.setError(
+                                                "Profile name is required"
+                                        );
+
+                                        return;
+                                    }
+
+                                    ReaderProfile profile =
+                                            captureCurrentProfile(
+                                                    name,
+                                                    editDescription
+                                                            .getText()
+                                                            .toString()
+                                                            .trim()
+                                            );
+
+                                    saveOrReplaceProfile(
+                                            profile
+                                    );
+
+                                    setStatus(
+                                            "Profile saved: "
+                                                    + name
+                                    );
+
+                                    dialog.dismiss();
+                                }
+                        )
+        );
+
+        dialog.show();
+    }
+
+    private void showDeleteProfileDialog() {
+        List<ReaderProfile> profiles =
+                loadProfiles();
+
+        if (profiles.isEmpty()) {
+            setStatus(
+                    "No profiles to delete"
+            );
+
+            return;
+        }
+
+        String[] names =
+                new String[
+                        profiles.size()
+                        ];
+
+        for (int index = 0;
+             index < profiles.size();
+             index++) {
+
+            names[index] =
+                    profiles.get(index).name;
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle(
+                        "Delete Profile"
+                )
+                .setItems(
+                        names,
+                        (dialog, index) -> {
+                            deleteProfile(
+                                    profiles
+                                            .get(index)
+                                            .name
+                            );
+                        }
+                )
+                .setNegativeButton(
+                        "Cancel",
+                        null
+                )
+                .show();
+    }
+
+    private ReaderProfile captureCurrentProfile(
+            String name,
+            String description
+    ) {
+        ReaderProfile profile =
+                new ReaderProfile();
+
+        profile.name = name;
+        profile.description = description;
+
+        profile.ant1Enabled =
+                chkAnt1.isChecked();
+
+        profile.ant2Enabled =
+                chkAnt2.isChecked();
+
+        profile.ant3Enabled =
+                chkAnt3.isChecked();
+
+        profile.ant4Enabled =
+                chkAnt4.isChecked();
+
+        profile.ant1Power =
+                selectedPower(
+                        seekAnt1Power
+                );
+
+        profile.ant2Power =
+                selectedPower(
+                        seekAnt2Power
+                );
+
+        profile.ant3Power =
+                selectedPower(
+                        seekAnt3Power
+                );
+
+        profile.ant4Power =
+                selectedPower(
+                        seekAnt4Power
+                );
+
+        profile.lastUsedAt =
+                System.currentTimeMillis();
+
+        return profile;
+    }
+
+    private void applyProfile(
+            ReaderProfile profile
+    ) {
+        chkAnt1.setChecked(
+                profile.ant1Enabled
+        );
+
+        chkAnt2.setChecked(
+                profile.ant2Enabled
+        );
+
+        chkAnt3.setChecked(
+                profile.ant3Enabled
+        );
+
+        chkAnt4.setChecked(
+                profile.ant4Enabled
+        );
+
+        setPower(
+                seekAnt1Power,
+                profile.ant1Power
+        );
+
+        setPower(
+                seekAnt2Power,
+                profile.ant2Power
+        );
+
+        setPower(
+                seekAnt3Power,
+                profile.ant3Power
+        );
+
+        setPower(
+                seekAnt4Power,
+                profile.ant4Power
+        );
+
+        sessionProfileName =
+                profile.name;
+
+        saveSessionNow();
+    }
+
+    private ReaderProfile findProfileByName(
+            String name
+    ) {
+        for (ReaderProfile profile
+                : loadProfiles()) {
+
+            if (profile.name.equals(name)) {
+                return profile;
+            }
+        }
+
+        return null;
+    }
+
+    private List<ReaderProfile> loadProfiles() {
+        List<ReaderProfile> profiles =
+                new ArrayList<>();
+
+        try {
+            String stored =
+                    preferences.getString(
+                            PREF_READER_PROFILES,
+                            "[]"
+                    );
+
+            JSONArray array =
+                    new JSONArray(stored);
+
+            for (int index = 0;
+                 index < array.length();
+                 index++) {
+
+                JSONObject object =
+                        array.getJSONObject(
+                                index
+                        );
+
+                ReaderProfile profile =
+                        new ReaderProfile();
+
+                profile.name =
+                        object.optString(
+                                "name",
+                                ""
+                        );
+
+                profile.description =
+                        object.optString(
+                                "description",
+                                ""
+                        );
+
+                profile.ant1Enabled =
+                        object.optBoolean(
+                                "ant1Enabled",
+                                true
+                        );
+
+                profile.ant2Enabled =
+                        object.optBoolean(
+                                "ant2Enabled",
+                                true
+                        );
+
+                profile.ant3Enabled =
+                        object.optBoolean(
+                                "ant3Enabled",
+                                true
+                        );
+
+                profile.ant4Enabled =
+                        object.optBoolean(
+                                "ant4Enabled",
+                                true
+                        );
+
+                profile.ant1Power =
+                        object.optInt(
+                                "ant1Power",
+                                30
+                        );
+
+                profile.ant2Power =
+                        object.optInt(
+                                "ant2Power",
+                                30
+                        );
+
+                profile.ant3Power =
+                        object.optInt(
+                                "ant3Power",
+                                30
+                        );
+
+                profile.ant4Power =
+                        object.optInt(
+                                "ant4Power",
+                                30
+                        );
+
+                profile.lastUsedAt =
+                        object.optLong(
+                                "lastUsedAt",
+                                0L
+                        );
+
+                if (!profile.name.isEmpty()) {
+                    profiles.add(profile);
+                }
+            }
+        } catch (Exception ignored) {
+        }
+
+        Collections.sort(
+                profiles,
+                (left, right) ->
+                        Long.compare(
+                                right.lastUsedAt,
+                                left.lastUsedAt
+                        )
+        );
+
+        return profiles;
+    }
+
+    private void saveOrReplaceProfile(
+            ReaderProfile profile
+    ) {
+        List<ReaderProfile> profiles =
+                loadProfiles();
+
+        boolean replaced = false;
+
+        for (int index = 0;
+             index < profiles.size();
+             index++) {
+
+            if (profiles
+                    .get(index)
+                    .name
+                    .equals(profile.name)) {
+
+                profiles.set(
+                        index,
+                        profile
+                );
+
+                replaced = true;
+                break;
+            }
+        }
+
+        if (!replaced) {
+            profiles.add(profile);
+        }
+
+        saveProfiles(profiles);
+    }
+
+    private void deleteProfile(
+            String name
+    ) {
+        List<ReaderProfile> profiles =
+                loadProfiles();
+
+        List<ReaderProfile> remaining =
+                new ArrayList<>();
+
+        for (ReaderProfile profile
+                : profiles) {
+
+            if (!profile.name.equals(name)) {
+                remaining.add(profile);
+            }
+        }
+
+        saveProfiles(remaining);
+
+        setStatus(
+                "Profile deleted: " + name
+        );
+    }
+
+    private void saveProfiles(
+            List<ReaderProfile> profiles
+    ) {
+        JSONArray array =
+                new JSONArray();
+
+        try {
+            for (ReaderProfile profile
+                    : profiles) {
+
+                JSONObject object =
+                        new JSONObject();
+
+                object.put(
+                        "name",
+                        profile.name
+                );
+
+                object.put(
+                        "description",
+                        profile.description
+                );
+
+                object.put(
+                        "ant1Enabled",
+                        profile.ant1Enabled
+                );
+
+                object.put(
+                        "ant2Enabled",
+                        profile.ant2Enabled
+                );
+
+                object.put(
+                        "ant3Enabled",
+                        profile.ant3Enabled
+                );
+
+                object.put(
+                        "ant4Enabled",
+                        profile.ant4Enabled
+                );
+
+                object.put(
+                        "ant1Power",
+                        profile.ant1Power
+                );
+
+                object.put(
+                        "ant2Power",
+                        profile.ant2Power
+                );
+
+                object.put(
+                        "ant3Power",
+                        profile.ant3Power
+                );
+
+                object.put(
+                        "ant4Power",
+                        profile.ant4Power
+                );
+
+                object.put(
+                        "lastUsedAt",
+                        profile.lastUsedAt
+                );
+
+                array.put(object);
+            }
+
+            preferences
+                    .edit()
+                    .putString(
+                            PREF_READER_PROFILES,
+                            array.toString()
+                    )
+                    .apply();
+        } catch (Exception exception) {
+            setStatus(
+                    "Profile save failed: "
+                            + exception.getMessage()
+            );
+        }
+    }
+
     private void connectReader() {
         setStatus("Connecting");
 
@@ -512,7 +1486,8 @@ public class MainActivity extends AppCompatActivity {
 
             try {
                 reader =
-                        RFIDWithUHFA4.getInstance();
+                        RFIDWithUHFA4
+                                .getInstance();
 
                 connected =
                         reader.init(
@@ -561,45 +1536,6 @@ public class MainActivity extends AppCompatActivity {
                 updateControls();
             });
         }).start();
-    }
-
-    private void createNewSession() {
-        if (sessionState
-                == SessionState.SCANNING) {
-
-            setStatus(
-                    "Pause or end the current session first"
-            );
-
-            return;
-        }
-
-        uniqueTags.clear();
-        totalReads = 0;
-
-        sessionId =
-                UUID.randomUUID().toString();
-
-        sessionStartedAt =
-                System.currentTimeMillis();
-
-        sessionEndedAt = 0L;
-        pauseStartedAt = 0L;
-        totalPausedMillis = 0L;
-        totalActiveMillis = 0L;
-        activeStartedAt = 0L;
-
-        sessionState =
-                SessionState.READY;
-
-        saveSessionNow();
-        refreshDisplay();
-
-        setStatus(
-                "New session ready"
-        );
-
-        updateControls();
     }
 
     private void startOrResumeScanning() {
@@ -753,6 +1689,8 @@ public class MainActivity extends AppCompatActivity {
 
                 saveSessionNow();
 
+                refreshDisplay();
+
                 if (finalError == null) {
                     setStatus(
                             "Session paused"
@@ -812,8 +1750,17 @@ public class MainActivity extends AppCompatActivity {
                 sessionState =
                         SessionState.ENDED;
 
+                /*
+                 * Force the final screen repaint before
+                 * saving and archiving. This fixes the
+                 * previous 312 versus 313 display mismatch.
+                 */
+                refreshDisplay();
+
                 saveSessionNow();
                 archiveCurrentSession();
+
+                refreshDisplay();
 
                 setStatus(
                         "Session ended and saved"
@@ -839,6 +1786,12 @@ public class MainActivity extends AppCompatActivity {
         totalReads = 0;
 
         sessionId = null;
+        sessionName = "";
+        sessionSite = "";
+        sessionOperator = "";
+        sessionNotes = "";
+        sessionProfileName = "";
+
         sessionStartedAt = 0L;
         sessionEndedAt = 0L;
         pauseStartedAt = 0L;
@@ -848,6 +1801,8 @@ public class MainActivity extends AppCompatActivity {
 
         sessionState =
                 SessionState.NO_SESSION;
+
+        editSearch.setText("");
 
         preferences
                 .edit()
@@ -979,7 +1934,6 @@ public class MainActivity extends AppCompatActivity {
 
     private final IUHFInventoryCallback inventoryCallback =
             new IUHFInventoryCallback() {
-
                 @Override
                 public void callback(
                         UHFTAGInfo tagInfo
@@ -1135,8 +2089,36 @@ public class MainActivity extends AppCompatActivity {
     private void refreshDisplay() {
         logLines.clear();
 
+        List<TagRecord> records =
+                new ArrayList<>(
+                        uniqueTags.values()
+                );
+
+        sortRecords(records);
+
+        String query =
+                editSearch == null
+                        ? ""
+                        : editSearch
+                        .getText()
+                        .toString()
+                        .trim()
+                        .toLowerCase(
+                                Locale.US
+                        );
+
         for (TagRecord record
-                : uniqueTags.values()) {
+                : records) {
+
+            if (!query.isEmpty()
+                    && !record.epc
+                    .toLowerCase(
+                            Locale.US
+                    )
+                    .contains(query)) {
+
+                continue;
+            }
 
             String line =
                     String.format(
@@ -1175,7 +2157,9 @@ public class MainActivity extends AppCompatActivity {
             logLines.add(line);
         }
 
-        adapter.notifyDataSetChanged();
+        if (adapter != null) {
+            adapter.notifyDataSetChanged();
+        }
 
         txtTotalReads.setText(
                 "Reads: " + totalReads
@@ -1186,6 +2170,45 @@ public class MainActivity extends AppCompatActivity {
         );
 
         updateHeader();
+    }
+
+    private void sortRecords(
+            List<TagRecord> records
+    ) {
+        if (sortMode
+                == SortMode.MOST_READS) {
+
+            Collections.sort(
+                    records,
+                    (left, right) ->
+                            Integer.compare(
+                                    right.count,
+                                    left.count
+                            )
+            );
+        } else if (sortMode
+                == SortMode.EPC) {
+
+            Collections.sort(
+                    records,
+                    Comparator.comparing(
+                            record ->
+                                    record.epc
+                                            .toLowerCase(
+                                                    Locale.US
+                                            )
+                    )
+            );
+        } else {
+            Collections.sort(
+                    records,
+                    (left, right) ->
+                            Long.compare(
+                                    left.firstSeenAt,
+                                    right.firstSeenAt
+                            )
+            );
+        }
     }
 
     private int antennaCount(
@@ -1267,17 +2290,11 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        String shortId;
-
-        if (sessionId.length() > 8) {
-            shortId =
-                    sessionId.substring(
-                            0,
-                            8
-                    );
-        } else {
-            shortId = sessionId;
-        }
+        String displayName =
+                sessionName == null
+                        || sessionName.isEmpty()
+                        ? shortSessionId()
+                        : sessionName;
 
         txtHeader.setText(
                 String.format(
@@ -1285,7 +2302,7 @@ public class MainActivity extends AppCompatActivity {
                         "TAG REAPER SENTINEL | %s | %s | %s | "
                                 + "E %s A %s P %s | %d reads | %d tags",
                         connection,
-                        shortId,
+                        displayName,
                         sessionState.name(),
                         formatDuration(
                                 currentElapsedMillis()
@@ -1300,6 +2317,21 @@ public class MainActivity extends AppCompatActivity {
                         uniqueTags.size()
                 )
         );
+    }
+
+    private String shortSessionId() {
+        if (sessionId == null) {
+            return "No session";
+        }
+
+        if (sessionId.length() > 8) {
+            return sessionId.substring(
+                    0,
+                    8
+            );
+        }
+
+        return sessionId;
     }
 
     private long currentElapsedMillis() {
@@ -1388,23 +2420,23 @@ public class MainActivity extends AppCompatActivity {
     private void updateControls() {
         boolean openSession =
                 sessionState
-                == SessionState.READY
-                || sessionState
-                == SessionState.SCANNING
-                || sessionState
-                == SessionState.PAUSED;
+                        == SessionState.READY
+                        || sessionState
+                        == SessionState.SCANNING
+                        || sessionState
+                        == SessionState.PAUSED;
 
         boolean hasSessionData =
                 sessionId != null;
 
         boolean canExport =
                 hasSessionData
-                && sessionState
-                == SessionState.ENDED;
+                        && sessionState
+                        == SessionState.ENDED;
 
         boolean antennaControlsEnabled =
                 sessionState
-                != SessionState.SCANNING;
+                        != SessionState.SCANNING;
 
         btnConnect.setEnabled(
                 !readerConnected
@@ -1412,14 +2444,14 @@ public class MainActivity extends AppCompatActivity {
 
         btnNewSession.setEnabled(
                 sessionState
-                != SessionState.SCANNING
+                        != SessionState.SCANNING
         );
 
         btnStart.setEnabled(
                 readerConnected
                         && (
                         sessionState
-                        == SessionState.READY
+                                == SessionState.READY
                                 || sessionState
                                 == SessionState.PAUSED
                 )
@@ -1439,7 +2471,7 @@ public class MainActivity extends AppCompatActivity {
 
         btnPause.setEnabled(
                 sessionState
-                == SessionState.SCANNING
+                        == SessionState.SCANNING
         );
 
         btnEndSession.setEnabled(
@@ -1448,7 +2480,11 @@ public class MainActivity extends AppCompatActivity {
 
         btnClear.setEnabled(
                 sessionState
-                != SessionState.SCANNING
+                        != SessionState.SCANNING
+        );
+
+        btnProfiles.setEnabled(
+                antennaControlsEnabled
         );
 
         btnExportCsv.setEnabled(
@@ -1543,6 +2579,31 @@ public class MainActivity extends AppCompatActivity {
         root.put(
                 "sessionId",
                 sessionId
+        );
+
+        root.put(
+                "sessionName",
+                sessionName
+        );
+
+        root.put(
+                "site",
+                sessionSite
+        );
+
+        root.put(
+                "operator",
+                sessionOperator
+        );
+
+        root.put(
+                "notes",
+                sessionNotes
+        );
+
+        root.put(
+                "profileName",
+                sessionProfileName
         );
 
         root.put(
@@ -1799,6 +2860,36 @@ public class MainActivity extends AppCompatActivity {
                 root.optString(
                         "sessionId",
                         null
+                );
+
+        sessionName =
+                root.optString(
+                        "sessionName",
+                        ""
+                );
+
+        sessionSite =
+                root.optString(
+                        "site",
+                        ""
+                );
+
+        sessionOperator =
+                root.optString(
+                        "operator",
+                        ""
+                );
+
+        sessionNotes =
+                root.optString(
+                        "notes",
+                        ""
+                );
+
+        sessionProfileName =
+                root.optString(
+                        "profileName",
+                        ""
                 );
 
         sessionState =
@@ -2203,23 +3294,34 @@ public class MainActivity extends AppCompatActivity {
                 continue;
             }
 
-            String id =
+            String name =
                     session.optString(
-                            "sessionId",
-                            "????????"
+                            "sessionName",
+                            ""
                     );
 
-            String shortId;
+            if (name.isEmpty()) {
+                String id =
+                        session.optString(
+                                "sessionId",
+                                "????????"
+                        );
 
-            if (id.length() > 8) {
-                shortId =
+                name =
                         id.substring(
                                 0,
-                                8
+                                Math.min(
+                                        8,
+                                        id.length()
+                                )
                         );
-            } else {
-                shortId = id;
             }
+
+            String site =
+                    session.optString(
+                            "site",
+                            ""
+                    );
 
             JSONArray tags =
                     session.optJSONArray(
@@ -2234,8 +3336,11 @@ public class MainActivity extends AppCompatActivity {
             labels[index] =
                     String.format(
                             Locale.US,
-                            "%s | %s | %d reads | %d tags",
-                            shortId,
+                            "%s%s | %s | %d reads | %d tags",
+                            name,
+                            site.isEmpty()
+                                    ? ""
+                                    : " @ " + site,
                             formatDateTime(
                                     session.optLong(
                                             "startedAt",
@@ -2369,19 +3474,20 @@ public class MainActivity extends AppCompatActivity {
     private String exportFileName(
             boolean csv
     ) {
-        String shortId;
+        String baseName;
 
-        if (sessionId == null) {
-            shortId = "session";
+        if (sessionName == null
+                || sessionName.isEmpty()) {
+
+            baseName =
+                    shortSessionId();
         } else {
-            shortId =
-                    sessionId.substring(
-                            0,
-                            Math.min(
-                                    8,
-                                    sessionId.length()
-                            )
-                    );
+            baseName =
+                    sessionName
+                            .replaceAll(
+                                    "[^a-zA-Z0-9-_]+",
+                                    "-"
+                            );
         }
 
         long stamp;
@@ -2394,7 +3500,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         return "sentinel-"
-                + shortId
+                + baseName
                 + "-"
                 + fileTimeFormat.format(
                         new Date(stamp)
@@ -2420,9 +3526,9 @@ public class MainActivity extends AppCompatActivity {
 
         boolean validRequest =
                 requestCode
-                == REQUEST_EXPORT_CSV
-                || requestCode
-                == REQUEST_EXPORT_JSON;
+                        == REQUEST_EXPORT_CSV
+                        || requestCode
+                        == REQUEST_EXPORT_JSON;
 
         if (!validRequest
                 || resultCode != RESULT_OK
@@ -2482,6 +3588,26 @@ public class MainActivity extends AppCompatActivity {
 
         csv.append(
                 "session_id,"
+        );
+
+        csv.append(
+                "session_name,"
+        );
+
+        csv.append(
+                "site,"
+        );
+
+        csv.append(
+                "operator,"
+        );
+
+        csv.append(
+                "notes,"
+        );
+
+        csv.append(
+                "profile_name,"
         );
 
         csv.append(
@@ -2591,37 +3717,9 @@ public class MainActivity extends AppCompatActivity {
         for (TagRecord record
                 : uniqueTags.values()) {
 
-            csv.append(
-                    csvCell(sessionId)
-            ).append(',');
-
-            csv.append(
-                    csvCell(
-                            formatDateTime(
-                                    sessionStartedAt
-                            )
-                    )
-            ).append(',');
-
-            csv.append(
-                    csvCell(
-                            formatDateTime(
-                                    sessionEndedAt
-                            )
-                    )
-            ).append(',');
-
-            csv.append(
-                    currentElapsedMillis()
-            ).append(',');
-
-            csv.append(
-                    currentActiveMillis()
-            ).append(',');
-
-            csv.append(
-                    currentPausedMillis()
-            ).append(',');
+            appendSessionCsvPrefix(
+                    csv
+            );
 
             csv.append(
                     csvCell(record.epc)
@@ -2706,93 +3804,63 @@ public class MainActivity extends AppCompatActivity {
             csv.append('\n');
         }
 
-        if (uniqueTags.isEmpty()) {
-            csv.append(
-                    csvCell(sessionId)
-            ).append(',');
-
-            csv.append(
-                    csvCell(
-                            formatDateTime(
-                                    sessionStartedAt
-                            )
-                    )
-            ).append(',');
-
-            csv.append(
-                    csvCell(
-                            formatDateTime(
-                                    sessionEndedAt
-                            )
-                    )
-            ).append(',');
-
-            csv.append(
-                    currentElapsedMillis()
-            ).append(',');
-
-            csv.append(
-                    currentActiveMillis()
-            ).append(',');
-
-            csv.append(
-                    currentPausedMillis()
-            );
-
-            csv.append(
-                    ",,0,,,,"
-            );
-
-            csv.append(
-                    chkAnt1.isChecked()
-            ).append(',');
-
-            csv.append(
-                    selectedPower(
-                            seekAnt1Power
-                    )
-            ).append(
-                    ",0,,"
-            );
-
-            csv.append(
-                    chkAnt2.isChecked()
-            ).append(',');
-
-            csv.append(
-                    selectedPower(
-                            seekAnt2Power
-                    )
-            ).append(
-                    ",0,,"
-            );
-
-            csv.append(
-                    chkAnt3.isChecked()
-            ).append(',');
-
-            csv.append(
-                    selectedPower(
-                            seekAnt3Power
-                    )
-            ).append(
-                    ",0,,"
-            );
-
-            csv.append(
-                    chkAnt4.isChecked()
-            ).append(',');
-
-            csv.append(
-                    selectedPower(
-                            seekAnt4Power
-                    )
-            ).append(
-                    ",0,\n"
-            );
-        }
-
         return csv.toString();
+    }
+
+    private void appendSessionCsvPrefix(
+            StringBuilder csv
+    ) {
+        csv.append(
+                csvCell(sessionId)
+        ).append(',');
+
+        csv.append(
+                csvCell(sessionName)
+        ).append(',');
+
+        csv.append(
+                csvCell(sessionSite)
+        ).append(',');
+
+        csv.append(
+                csvCell(sessionOperator)
+        ).append(',');
+
+        csv.append(
+                csvCell(sessionNotes)
+        ).append(',');
+
+        csv.append(
+                csvCell(sessionProfileName)
+        ).append(',');
+
+        csv.append(
+                csvCell(
+                        formatDateTime(
+                                sessionStartedAt
+                        )
+                )
+        ).append(',');
+
+        csv.append(
+                csvCell(
+                        formatDateTime(
+                                sessionEndedAt
+                        )
+                )
+        ).append(',');
+
+        csv.append(
+                currentElapsedMillis()
+        ).append(',');
+
+        csv.append(
+                currentActiveMillis()
+        ).append(',');
+
+        csv.append(
+                currentPausedMillis()
+        ).append(',');
     }
 
     private void appendAntennaCsv(
@@ -2923,4 +3991,4 @@ public class MainActivity extends AppCompatActivity {
 
         super.onDestroy();
     }
-                }
+                          }
