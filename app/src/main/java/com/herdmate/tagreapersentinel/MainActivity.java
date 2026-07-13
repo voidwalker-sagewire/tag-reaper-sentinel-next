@@ -346,6 +346,20 @@ public class MainActivity extends AppCompatActivity {
 
     private double parseDouble(String value) { try { return Double.parseDouble(value); } catch (Exception e) { return -9999; } }
 
+    private int antennaCount(TagRecord tag, String antennaNumber) {
+        int total = 0;
+        for (Map.Entry<String, AntennaRecord> entry : tag.antennas.entrySet()) {
+            String key = entry.getKey() == null ? "" : entry.getKey().toUpperCase(Locale.US);
+            if (key.equals(antennaNumber)
+                    || key.equals("ANT" + antennaNumber)
+                    || key.equals("ANT_" + antennaNumber)
+                    || key.endsWith(antennaNumber)) {
+                total += entry.getValue().count;
+            }
+        }
+        return total;
+    }
+
     private void captureContext() {
         if (state == SessionState.NO_SESSION) { setStatus("Create a session first"); return; }
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -399,9 +413,67 @@ public class MainActivity extends AppCompatActivity {
     @Override public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] results) {
         super.onRequestPermissionsResult(requestCode, permissions, results);
         if (requestCode == REQ_LOCATION) {
-            if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) captureContext();
-            else { setStatus("Location permission denied"); updateContextBar(); updateControls(); }
+            if (results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED) {
+                captureContext();
+            } else {
+                setStatus("Location permission denied");
+                showLocationPermissionHelp();
+                updateContextBar();
+                updateControls();
+            }
         }
+    }
+
+    private void showLocationPermissionHelp() {
+        boolean canAskAgain =
+                ActivityCompat.shouldShowRequestPermissionRationale(
+                        this,
+                        Manifest.permission.ACCESS_FINE_LOCATION
+                );
+
+        AlertDialog.Builder builder =
+                new AlertDialog.Builder(this)
+                        .setTitle("Location permission needed")
+                        .setMessage(
+                                canAskAgain
+                                        ? "Tag Reaper needs location permission to capture GPS and request SageWire weather."
+                                        : "Android has blocked location permission for Tag Reaper. Open App Settings, then allow Location."
+                        )
+                        .setNegativeButton("Not now", null);
+
+        if (canAskAgain) {
+            builder.setPositiveButton(
+                    "Ask again",
+                    (dialog, which) -> ActivityCompat.requestPermissions(
+                            this,
+                            new String[]{
+                                    Manifest.permission.ACCESS_FINE_LOCATION,
+                                    Manifest.permission.ACCESS_COARSE_LOCATION
+                            },
+                            REQ_LOCATION
+                    )
+            );
+        } else {
+            builder.setPositiveButton(
+                    "Open App Settings",
+                    (dialog, which) -> {
+                        Intent intent =
+                                new Intent(
+                                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+                                );
+
+                        intent.setData(
+                                Uri.parse(
+                                        "package:" + getPackageName()
+                                )
+                        );
+
+                        startActivity(intent);
+                    }
+            );
+        }
+
+        builder.show();
     }
 
     private void updateContextBar() {
@@ -428,8 +500,15 @@ public class MainActivity extends AppCompatActivity {
         else Collections.sort(list, Comparator.comparingLong(a -> a.firstSeenAt));
         String q = editSearch == null ? "" : editSearch.getText().toString().trim().toLowerCase(Locale.US);
         displayLines.clear(); for (TagRecord t : list) if (q.isEmpty() || t.epc.toLowerCase(Locale.US).contains(q)) {
-            displayLines.add(String.format(Locale.US, "%s   Reads %d   RSSI %.1f   %s → %s",
-                    t.epc, t.count, t.strongestRssi, dateTime.format(new Date(t.firstSeenAt)), dateTime.format(new Date(t.lastSeenAt))));
+            int a1 = antennaCount(t, "1");
+            int a2 = antennaCount(t, "2");
+            int a3 = antennaCount(t, "3");
+            int a4 = antennaCount(t, "4");
+            displayLines.add(String.format(Locale.US,
+                    "%s   Reads %d   RSSI %.1f   A1:%d A2:%d A3:%d A4:%d   %s → %s",
+                    t.epc, t.count, t.strongestRssi, a1, a2, a3, a4,
+                    dateTime.format(new Date(t.firstSeenAt)),
+                    dateTime.format(new Date(t.lastSeenAt))));
         }
         if (adapter != null) adapter.notifyDataSetChanged();
         if (txtTotalReads != null) txtTotalReads.setText("Reads: " + totalReads);
@@ -456,7 +535,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void updateControls() {
         boolean open = state == SessionState.READY || state == SessionState.SCANNING || state == SessionState.PAUSED;
-        boolean configUnlocked = state == SessionState.NO_SESSION || state == SessionState.ENDED;
+        boolean configUnlocked = state != SessionState.SCANNING && state != SessionState.PAUSED;
         boolean ended = state == SessionState.ENDED;
         btnConnect.setEnabled(!readerConnected); btnNewSession.setEnabled(state != SessionState.SCANNING);
         btnStart.setEnabled(readerConnected && (state == SessionState.READY || state == SessionState.PAUSED));
@@ -596,12 +675,26 @@ public class MainActivity extends AppCompatActivity {
     private ReaderProfile findProfile(String name) { for (ReaderProfile p : loadProfiles()) if (p.name.equals(name)) return p; return null; }
 
     private List<ReaderProfile> loadProfiles() {
-        List<ReaderProfile> out = new ArrayList<>(); try { JSONArray a = new JSONArray(prefs.getString(PREF_PROFILES, "[]")); for (int i = 0; i < a.length(); i++) { JSONObject o = a.getJSONObject(i); ReaderProfile p = new ReaderProfile(); p.name = o.optString("name"); p.description = o.optString("description"); p.a1 = o.optBoolean("a1", true); p.a2 = o.optBoolean("a2", true); p.a3 = o.optBoolean("a3", true); p.a4 = o.optBoolean("a4", true); p.p1 = o.optInt("p1", 30); p.p2 = o.optInt("p2", 30); p.p3 = o.optInt("p3", 30); p.p4 = o.optInt("p4", 30); p.lastUsedAt = o.optLong("lastUsedAt"); if (!p.name.isEmpty()) out.add(p); } } catch (Exception ignored) {}
+        List<ReaderProfile> out = new ArrayList<>(); try { JSONArray a = new JSONArray(prefs.getString(PREF_PROFILES, "[]")); for (int i = 0; i < a.length(); i++) { JSONObject o = a.getJSONObject(i); ReaderProfile p = new ReaderProfile(); p.name = o.optString("name"); p.description = o.optString("description");
+            p.a1 = o.has("a1") ? o.optBoolean("a1", true) : o.optBoolean("ant1Enabled", true);
+            p.a2 = o.has("a2") ? o.optBoolean("a2", true) : o.optBoolean("ant2Enabled", true);
+            p.a3 = o.has("a3") ? o.optBoolean("a3", true) : o.optBoolean("ant3Enabled", true);
+            p.a4 = o.has("a4") ? o.optBoolean("a4", true) : o.optBoolean("ant4Enabled", true);
+            p.p1 = o.has("p1") ? o.optInt("p1", 30) : o.optInt("ant1Power", 30);
+            p.p2 = o.has("p2") ? o.optInt("p2", 30) : o.optInt("ant2Power", 30);
+            p.p3 = o.has("p3") ? o.optInt("p3", 30) : o.optInt("ant3Power", 30);
+            p.p4 = o.has("p4") ? o.optInt("p4", 30) : o.optInt("ant4Power", 30);
+            p.lastUsedAt = o.optLong("lastUsedAt"); if (!p.name.isEmpty()) out.add(p); } } catch (Exception ignored) {}
         Collections.sort(out, (a, b) -> Long.compare(b.lastUsedAt, a.lastUsedAt)); return out;
     }
 
     private void saveProfile(ReaderProfile p) { List<ReaderProfile> ps = loadProfiles(); boolean replaced = false; for (int i = 0; i < ps.size(); i++) if (ps.get(i).name.equals(p.name)) { ps.set(i, p); replaced = true; break; } if (!replaced) ps.add(p); saveProfiles(ps); }
-    private void saveProfiles(List<ReaderProfile> ps) { JSONArray a = new JSONArray(); try { for (ReaderProfile p : ps) { JSONObject o = new JSONObject(); o.put("name", p.name); o.put("description", p.description); o.put("a1", p.a1); o.put("a2", p.a2); o.put("a3", p.a3); o.put("a4", p.a4); o.put("p1", p.p1); o.put("p2", p.p2); o.put("p3", p.p3); o.put("p4", p.p4); o.put("lastUsedAt", p.lastUsedAt); a.put(o); } prefs.edit().putString(PREF_PROFILES, a.toString()).apply(); } catch (Exception ignored) {} }
+    private void saveProfiles(List<ReaderProfile> ps) { JSONArray a = new JSONArray(); try { for (ReaderProfile p : ps) { JSONObject o = new JSONObject(); o.put("name", p.name); o.put("description", p.description);
+            o.put("a1", p.a1); o.put("a2", p.a2); o.put("a3", p.a3); o.put("a4", p.a4);
+            o.put("p1", p.p1); o.put("p2", p.p2); o.put("p3", p.p3); o.put("p4", p.p4);
+            o.put("ant1Enabled", p.a1); o.put("ant2Enabled", p.a2); o.put("ant3Enabled", p.a3); o.put("ant4Enabled", p.a4);
+            o.put("ant1Power", p.p1); o.put("ant2Power", p.p2); o.put("ant3Power", p.p3); o.put("ant4Power", p.p4);
+            o.put("lastUsedAt", p.lastUsedAt); a.put(o); } prefs.edit().putString(PREF_PROFILES, a.toString()).apply(); } catch (Exception ignored) {} }
 
     @Override protected void onDestroy() {
         clock.removeCallbacks(clockTick); try { if (reader != null && state == SessionState.SCANNING) reader.stopInventory(); } catch (Throwable ignored) {} super.onDestroy();
