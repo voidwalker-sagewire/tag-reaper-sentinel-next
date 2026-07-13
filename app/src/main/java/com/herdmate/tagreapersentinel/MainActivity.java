@@ -551,7 +551,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void beginExport(boolean csv) {
-        pendingExport = csv ? buildCsv() : buildSessionJson().toString(2);
+        pendingExport = csv ? buildCsv() : buildSessionJson().toString();
         Intent i = new Intent(Intent.ACTION_CREATE_DOCUMENT); i.addCategory(Intent.CATEGORY_OPENABLE); i.setType(csv ? "text/csv" : "application/json");
         i.putExtra(Intent.EXTRA_TITLE, safeFile(sessionName) + "-" + fileTime.format(new Date()) + (csv ? ".csv" : ".json"));
         startActivityForResult(i, csv ? REQ_CSV : REQ_JSON);
