@@ -1,4 +1,4 @@
-ackage com.herdmate.tagreapersentinel;
+package com.herdmate.tagreapersentinel;
 
 import org.json.JSONObject;
 
