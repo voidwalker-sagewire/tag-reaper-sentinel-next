@@ -2418,121 +2418,129 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateControls() {
-        boolean openSession =
-                sessionState
-                        == SessionState.READY
-                        || sessionState
-                        == SessionState.SCANNING
-                        || sessionState
-                        == SessionState.PAUSED;
+    boolean openSession =
+            sessionState
+                    == SessionState.READY
+                    || sessionState
+                    == SessionState.SCANNING
+                    || sessionState
+                    == SessionState.PAUSED;
 
-        boolean hasSessionData =
-                sessionId != null;
+    boolean hasSessionData =
+            sessionId != null;
 
-        boolean canExport =
-                hasSessionData
-                        && sessionState
-                        == SessionState.ENDED;
+    boolean canExport =
+            hasSessionData
+                    && sessionState
+                    == SessionState.ENDED;
 
-        boolean antennaControlsEnabled =
-                sessionState
-                        != SessionState.SCANNING;
+    /*
+     * v0.5.1 evidence-integrity rule:
+     *
+     * Antenna enable states and power settings may only
+     * be changed when there is no open field session.
+     *
+     * Once a session is created, its reader configuration
+     * remains frozen through READY, SCANNING, and PAUSED.
+     * This prevents the final export from showing settings
+     * that were changed after some reads had already occurred.
+     */
+    boolean configurationUnlocked =
+            sessionState == SessionState.NO_SESSION
+                    || sessionState == SessionState.ENDED;
 
-        btnConnect.setEnabled(
-                !readerConnected
+    btnConnect.setEnabled(
+            !readerConnected
+    );
+
+    btnNewSession.setEnabled(
+            sessionState != SessionState.SCANNING
+    );
+
+    btnStart.setEnabled(
+            readerConnected
+                    && (
+                    sessionState == SessionState.READY
+                            || sessionState == SessionState.PAUSED
+            )
+    );
+
+    if (sessionState == SessionState.PAUSED) {
+        btnStart.setText(
+                "Resume Scan"
         );
-
-        btnNewSession.setEnabled(
-                sessionState
-                        != SessionState.SCANNING
+    } else {
+        btnStart.setText(
+                "Start Scan"
         );
-
-        btnStart.setEnabled(
-                readerConnected
-                        && (
-                        sessionState
-                                == SessionState.READY
-                                || sessionState
-                                == SessionState.PAUSED
-                )
-        );
-
-        if (sessionState
-                == SessionState.PAUSED) {
-
-            btnStart.setText(
-                    "Resume Scan"
-            );
-        } else {
-            btnStart.setText(
-                    "Start Scan"
-            );
-        }
-
-        btnPause.setEnabled(
-                sessionState
-                        == SessionState.SCANNING
-        );
-
-        btnEndSession.setEnabled(
-                openSession
-        );
-
-        btnClear.setEnabled(
-                sessionState
-                        != SessionState.SCANNING
-        );
-
-        btnProfiles.setEnabled(
-                antennaControlsEnabled
-        );
-
-        btnExportCsv.setEnabled(
-                canExport
-        );
-
-        btnExportJson.setEnabled(
-                canExport
-        );
-
-        btnShare.setEnabled(
-                canExport
-        );
-
-        chkAnt1.setEnabled(
-                antennaControlsEnabled
-        );
-
-        chkAnt2.setEnabled(
-                antennaControlsEnabled
-        );
-
-        chkAnt3.setEnabled(
-                antennaControlsEnabled
-        );
-
-        chkAnt4.setEnabled(
-                antennaControlsEnabled
-        );
-
-        seekAnt1Power.setEnabled(
-                antennaControlsEnabled
-        );
-
-        seekAnt2Power.setEnabled(
-                antennaControlsEnabled
-        );
-
-        seekAnt3Power.setEnabled(
-                antennaControlsEnabled
-        );
-
-        seekAnt4Power.setEnabled(
-                antennaControlsEnabled
-        );
-
-        updateHeader();
     }
+
+    btnPause.setEnabled(
+            sessionState == SessionState.SCANNING
+    );
+
+    btnEndSession.setEnabled(
+            openSession
+    );
+
+    btnClear.setEnabled(
+            sessionState != SessionState.SCANNING
+    );
+
+    /*
+     * Profiles also change antenna configuration,
+     * so profiles stay locked during an open session.
+     */
+    btnProfiles.setEnabled(
+            configurationUnlocked
+    );
+
+    btnExportCsv.setEnabled(
+            canExport
+    );
+
+    btnExportJson.setEnabled(
+            canExport
+    );
+
+    btnShare.setEnabled(
+            canExport
+    );
+
+    chkAnt1.setEnabled(
+            configurationUnlocked
+    );
+
+    chkAnt2.setEnabled(
+            configurationUnlocked
+    );
+
+    chkAnt3.setEnabled(
+            configurationUnlocked
+    );
+
+    chkAnt4.setEnabled(
+            configurationUnlocked
+    );
+
+    seekAnt1Power.setEnabled(
+            configurationUnlocked
+    );
+
+    seekAnt2Power.setEnabled(
+            configurationUnlocked
+    );
+
+    seekAnt3Power.setEnabled(
+            configurationUnlocked
+    );
+
+    seekAnt4Power.setEnabled(
+            configurationUnlocked
+    );
+
+    updateHeader();
+}
 
     private void saveSessionThrottled() {
         long now =
