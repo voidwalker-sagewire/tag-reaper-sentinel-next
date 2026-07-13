@@ -6,7 +6,6 @@
     android:background="#080b10"
     android:padding="8dp">
 
-    <!-- Compact status and session header -->
     <TextView
         android:id="@+id/txtHeader"
         android:layout_width="match_parent"
@@ -22,7 +21,50 @@
         android:textStyle="bold"
         android:singleLine="true"
         android:ellipsize="end"
-        android:layout_marginBottom="5dp" />
+        android:layout_marginBottom="4dp" />
+
+    <!-- v0.6 GPS and SageWire context bar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="42dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="#0f172a"
+        android:paddingStart="8dp"
+        android:paddingEnd="4dp"
+        android:layout_marginBottom="4dp">
+
+        <TextView
+            android:id="@+id/txtContextStatus"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:gravity="center_vertical"
+            android:text="CONTEXT | GPS not captured"
+            android:textColor="#e5e7eb"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:singleLine="true"
+            android:ellipsize="end" />
+
+        <Button
+            android:id="@+id/btnCaptureContext"
+            android:layout_width="120dp"
+            android:layout_height="36dp"
+            android:text="Capture GPS"
+            android:textSize="10sp"
+            android:padding="2dp" />
+
+        <Button
+            android:id="@+id/btnRetryContext"
+            android:layout_width="105dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="4dp"
+            android:text="Retry Sync"
+            android:textSize="10sp"
+            android:padding="2dp"
+            android:enabled="false" />
+    </LinearLayout>
 
     <!-- Main reader and session controls -->
     <LinearLayout
@@ -213,7 +255,7 @@
             android:checked="true" />
     </LinearLayout>
 
-    <!-- Four independent antenna power controls -->
+    <!-- Independent antenna power controls -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -395,7 +437,6 @@
             android:textSize="12sp" />
     </LinearLayout>
 
-    <!-- Main scrolling tag ledger -->
     <ListView
         android:id="@+id/listTags"
         android:layout_width="match_parent"
