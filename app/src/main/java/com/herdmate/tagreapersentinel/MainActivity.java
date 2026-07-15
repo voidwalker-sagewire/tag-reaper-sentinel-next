@@ -67,6 +67,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQ_LOCATION = 2001;
     private static final int MIN_DBM = 5;
     private static final int MAX_DBM = 30;
+    private static final long GPS_TIMEOUT_MS = 60000L;
 
     private RFIDWithUHFA4 reader;
     private boolean readerConnected;
@@ -96,6 +97,18 @@ public class MainActivity extends AppCompatActivity {
 
     private LocationManager locationManager;
     private boolean contextSyncRunning;
+    private boolean gpsSearchRunning;
+    private long gpsSearchStartedAt;
+    private LocationListener gpsLocationListener;
+    private LocationListener networkLocationListener;
+    private final Handler gpsHandler = new Handler(Looper.getMainLooper());
+    private final Runnable gpsTimeoutRunnable = () -> {
+        if (!gpsSearchRunning || gpsCaptured) return;
+        stopGpsSearch();
+        setStatus("GPS timed out — tap Capture GPS to retry");
+        updateContextBar();
+        updateControls();
+    };
     private boolean gpsCaptured;
     private double latitude, longitude, altitude;
     private float accuracy, speed, heading;
@@ -361,37 +374,184 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void captureContext() {
-        if (state == SessionState.NO_SESSION) { setStatus("Create a session first"); return; }
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, REQ_LOCATION); return;
+        if (state == SessionState.NO_SESSION) {
+            setStatus("Create a session first");
+            return;
         }
-        if (!locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) && !locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
-            new AlertDialog.Builder(this).setTitle("Location is off").setMessage("Turn on phone location, then tap Capture GPS again.")
-                    .setPositiveButton("Open Settings", (d, w) -> startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)))
-                    .setNegativeButton("Cancel", null).show(); return;
+
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+        ) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(
+                    this,
+                    new String[]{
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                    },
+                    REQ_LOCATION
+            );
+            return;
         }
-        txtContextStatus.setText("CONTEXT | Capturing GPS…"); btnCaptureContext.setEnabled(false);
-        LocationListener listener = new LocationListener() {
-            @Override public void onLocationChanged(@NonNull Location loc) {
-                try { locationManager.removeUpdates(this); } catch (Exception ignored) {}
-                acceptLocation(loc);
-            }
+
+        boolean gpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
+        boolean networkEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
+
+        if (!gpsEnabled && !networkEnabled) {
+            new AlertDialog.Builder(this)
+                    .setTitle("Location is off")
+                    .setMessage("Turn on device location, then tap Capture GPS again.")
+                    .setPositiveButton(
+                            "Open Settings",
+                            (dialog, which) -> startActivity(
+                                    new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+                            )
+                    )
+                    .setNegativeButton("Cancel", null)
+                    .show();
+            return;
+        }
+
+        stopGpsSearch();
+        gpsSearchRunning = true;
+        gpsSearchStartedAt = System.currentTimeMillis();
+        txtContextStatus.setText("CONTEXT | GPS searching…");
+        setStatus("GPS searching");
+        btnCaptureContext.setEnabled(false);
+        btnRetryContext.setEnabled(false);
+
+        gpsLocationListener = new LocationListener() {
+            @Override public void onLocationChanged(@NonNull Location location) { considerLocation(location); }
             @Override public void onProviderEnabled(@NonNull String provider) {}
             @Override public void onProviderDisabled(@NonNull String provider) {}
         };
+
+        networkLocationListener = new LocationListener() {
+            @Override public void onLocationChanged(@NonNull Location location) { considerLocation(location); }
+            @Override public void onProviderEnabled(@NonNull String provider) {}
+            @Override public void onProviderDisabled(@NonNull String provider) {}
+        };
+
         try {
-            String provider = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ? LocationManager.GPS_PROVIDER : LocationManager.NETWORK_PROVIDER;
-            Location last = locationManager.getLastKnownLocation(provider);
-            if (last != null && System.currentTimeMillis() - last.getTime() < 120000L) acceptLocation(last);
-            else locationManager.requestSingleUpdate(provider, listener, Looper.getMainLooper());
-        } catch (SecurityException e) { setStatus("Location permission denied"); updateControls(); }
+            Location bestLastKnown = null;
+
+            if (gpsEnabled) {
+                bestLastKnown = betterLocation(
+                        bestLastKnown,
+                        locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                );
+                locationManager.requestLocationUpdates(
+                        LocationManager.GPS_PROVIDER,
+                        1000L,
+                        0f,
+                        gpsLocationListener,
+                        Looper.getMainLooper()
+                );
+            }
+
+            if (networkEnabled) {
+                bestLastKnown = betterLocation(
+                        bestLastKnown,
+                        locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+                );
+                locationManager.requestLocationUpdates(
+                        LocationManager.NETWORK_PROVIDER,
+                        1000L,
+                        0f,
+                        networkLocationListener,
+                        Looper.getMainLooper()
+                );
+            }
+
+            gpsHandler.postDelayed(gpsTimeoutRunnable, GPS_TIMEOUT_MS);
+
+            if (isFreshUsableLocation(bestLastKnown)) {
+                acceptLocation(bestLastKnown);
+            }
+        } catch (SecurityException exception) {
+            stopGpsSearch();
+            setStatus("Location permission denied");
+            showLocationPermissionHelp();
+            updateContextBar();
+            updateControls();
+        } catch (Exception exception) {
+            stopGpsSearch();
+            setStatus("GPS error: " + exception.getMessage());
+            updateContextBar();
+            updateControls();
+        }
     }
 
-    private void acceptLocation(Location loc) {
-        latitude = loc.getLatitude(); longitude = loc.getLongitude(); altitude = loc.hasAltitude() ? loc.getAltitude() : 0;
-        accuracy = loc.hasAccuracy() ? loc.getAccuracy() : 0; speed = loc.hasSpeed() ? loc.getSpeed() : 0;
-        heading = loc.hasBearing() ? loc.getBearing() : 0; gpsTimestamp = loc.getTime() > 0 ? loc.getTime() : System.currentTimeMillis();
-        gpsCaptured = true; locationStatus = "PENDING"; weatherStatus = "PENDING"; saveSession(); updateContextBar(); syncContext();
+    private void considerLocation(Location location) {
+        if (!gpsSearchRunning || location == null) return;
+        if (location.getLatitude() == 0.0 && location.getLongitude() == 0.0) return;
+
+        float locationAccuracy = location.hasAccuracy() ? location.getAccuracy() : 9999f;
+        long searchingFor = System.currentTimeMillis() - gpsSearchStartedAt;
+
+        if (locationAccuracy <= 200f || searchingFor >= 15000L) {
+            acceptLocation(location);
+        }
+    }
+
+    private boolean isFreshUsableLocation(Location location) {
+        if (location == null) return false;
+        long age = System.currentTimeMillis() - location.getTime();
+        return age >= 0L
+                && age <= 120000L
+                && !(location.getLatitude() == 0.0 && location.getLongitude() == 0.0);
+    }
+
+    private Location betterLocation(Location current, Location candidate) {
+        if (candidate == null) return current;
+        if (current == null) return candidate;
+
+        long candidateAge = System.currentTimeMillis() - candidate.getTime();
+        long currentAge = System.currentTimeMillis() - current.getTime();
+
+        if (candidateAge < currentAge - 30000L) return candidate;
+        if (candidate.hasAccuracy()
+                && (!current.hasAccuracy() || candidate.getAccuracy() < current.getAccuracy())) {
+            return candidate;
+        }
+        return current;
+    }
+
+    private void acceptLocation(Location location) {
+        if (location == null) return;
+
+        stopGpsSearch();
+        latitude = location.getLatitude();
+        longitude = location.getLongitude();
+        altitude = location.hasAltitude() ? location.getAltitude() : 0.0;
+        accuracy = location.hasAccuracy() ? location.getAccuracy() : 0f;
+        speed = location.hasSpeed() ? location.getSpeed() : 0f;
+        heading = location.hasBearing() ? location.getBearing() : 0f;
+        gpsTimestamp = location.getTime() > 0L ? location.getTime() : System.currentTimeMillis();
+        gpsCaptured = true;
+        locationStatus = "PENDING";
+        weatherStatus = "PENDING";
+        saveSession();
+        setStatus("GPS captured");
+        updateContextBar();
+        updateControls();
+        syncContext();
+    }
+
+    private void stopGpsSearch() {
+        gpsSearchRunning = false;
+        gpsHandler.removeCallbacks(gpsTimeoutRunnable);
+
+        try {
+            if (gpsLocationListener != null) locationManager.removeUpdates(gpsLocationListener);
+        } catch (Exception ignored) {}
+
+        try {
+            if (networkLocationListener != null) locationManager.removeUpdates(networkLocationListener);
+        } catch (Exception ignored) {}
+
+        gpsLocationListener = null;
+        networkLocationListener = null;
     }
 
     private void syncContext() {
@@ -479,6 +639,7 @@ public class MainActivity extends AppCompatActivity {
     private void updateContextBar() {
         if (txtContextStatus == null) return;
         if (state == SessionState.NO_SESSION) txtContextStatus.setText("CONTEXT | Create a session to capture GPS");
+        else if (gpsSearchRunning) txtContextStatus.setText("CONTEXT | GPS searching…");
         else if (!gpsCaptured) txtContextStatus.setText("CONTEXT | GPS not captured");
         else if (contextSyncRunning) txtContextStatus.setText(String.format(Locale.US, "CONTEXT | %.5f, %.5f | Syncing SageWire…", latitude, longitude));
         else if ("COMPLETE".equals(locationStatus) && "COMPLETE".equals(weatherStatus)) {
@@ -488,7 +649,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void resetContext() {
-        gpsCaptured = false; contextSyncRunning = false; latitude = longitude = altitude = 0; accuracy = speed = heading = 0; gpsTimestamp = 0;
+        stopGpsSearch(); gpsCaptured = false; contextSyncRunning = false; latitude = longitude = altitude = 0; accuracy = speed = heading = 0; gpsTimestamp = 0;
         locationStatus = weatherStatus = "NOT_CAPTURED"; locationRaw = locationError = weatherRaw = weatherError = "";
         locationHttpCode = weatherHttpCode = 0; temperature = condition = wind = humidity = weatherFetchedAt = ""; weatherCached = false;
     }
@@ -544,8 +705,8 @@ public class MainActivity extends AppCompatActivity {
         btnProfiles.setEnabled(configUnlocked); btnExportCsv.setEnabled(ended); btnExportJson.setEnabled(ended); btnShare.setEnabled(ended);
         chkAnt1.setEnabled(configUnlocked); chkAnt2.setEnabled(configUnlocked); chkAnt3.setEnabled(configUnlocked); chkAnt4.setEnabled(configUnlocked);
         seekAnt1Power.setEnabled(configUnlocked); seekAnt2Power.setEnabled(configUnlocked); seekAnt3Power.setEnabled(configUnlocked); seekAnt4Power.setEnabled(configUnlocked);
-        btnCaptureContext.setEnabled(state != SessionState.NO_SESSION && !contextSyncRunning);
-        btnRetryContext.setEnabled(gpsCaptured && !contextSyncRunning && (!("COMPLETE".equals(locationStatus)) || !("COMPLETE".equals(weatherStatus))));
+        btnCaptureContext.setEnabled(state != SessionState.NO_SESSION && !contextSyncRunning && !gpsSearchRunning);
+        btnRetryContext.setEnabled(gpsCaptured && !contextSyncRunning && !gpsSearchRunning && (!("COMPLETE".equals(locationStatus)) || !("COMPLETE".equals(weatherStatus))));
         updateContextBar(); updateHeader();
     }
 
@@ -697,6 +858,11 @@ public class MainActivity extends AppCompatActivity {
             o.put("lastUsedAt", p.lastUsedAt); a.put(o); } prefs.edit().putString(PREF_PROFILES, a.toString()).apply(); } catch (Exception ignored) {} }
 
     @Override protected void onDestroy() {
-        clock.removeCallbacks(clockTick); try { if (reader != null && state == SessionState.SCANNING) reader.stopInventory(); } catch (Throwable ignored) {} super.onDestroy();
+        stopGpsSearch();
+        clock.removeCallbacks(clockTick);
+        try {
+            if (reader != null && state == SessionState.SCANNING) reader.stopInventory();
+        } catch (Throwable ignored) {}
+        super.onDestroy();
     }
 }
