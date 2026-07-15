@@ -98,6 +98,7 @@ public class MainActivity extends AppCompatActivity {
     private LocationManager locationManager;
     private boolean contextSyncRunning;
     private boolean gpsSearchRunning;
+    private boolean gpsCaptured;
     private long gpsSearchStartedAt;
     private LocationListener gpsLocationListener;
     private LocationListener networkLocationListener;
@@ -109,7 +110,6 @@ public class MainActivity extends AppCompatActivity {
         updateContextBar();
         updateControls();
     };
-    private boolean gpsCaptured;
     private double latitude, longitude, altitude;
     private float accuracy, speed, heading;
     private long gpsTimestamp;
