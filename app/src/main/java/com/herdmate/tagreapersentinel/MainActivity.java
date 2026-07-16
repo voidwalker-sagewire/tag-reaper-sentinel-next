@@ -51,6 +51,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -61,6 +63,10 @@ public class MainActivity extends AppCompatActivity {
     private static final String PREF_LAST_SITE = "last_site";
     private static final String PREF_LAST_OPERATOR = "last_operator";
     private static final String PREF_LAST_PROFILE = "last_profile";
+    private static final String PREF_ANIMAL_CACHE = "animal_lookup_cache";
+    private static final String PREF_ANIMAL_API_BASE = "animal_api_base";
+    private static final String PREF_HERDMATE_SHEET_ID = "herdmate_sheet_id";
+    private static final String DEFAULT_ANIMAL_API_BASE = "https://dave.sagewire.dev";
 
     private static final int REQ_CSV = 1001;
     private static final int REQ_JSON = 1002;
@@ -68,6 +74,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int MIN_DBM = 5;
     private static final int MAX_DBM = 30;
     private static final long GPS_TIMEOUT_MS = 60000L;
+    private static final long ANIMAL_CACHE_TTL_MS = 24L * 60L * 60L * 1000L;
 
     private RFIDWithUHFA4 reader;
     private boolean readerConnected;
@@ -84,8 +91,12 @@ public class MainActivity extends AppCompatActivity {
     private ArrayAdapter<String> adapter;
 
     private final List<String> displayLines = new ArrayList<>();
+    private final List<TagRecord> displayTagRecords = new ArrayList<>();
     private final LinkedHashMap<String, TagRecord> tags = new LinkedHashMap<>();
+    private final LinkedHashMap<String, AnimalLookupClient.AnimalRecord> animalCache = new LinkedHashMap<>();
+    private final ExecutorService animalLookupExecutor = Executors.newSingleThreadExecutor();
     private SharedPreferences prefs;
+    private boolean animalSettingsPromptShown;
 
     private SessionState state = SessionState.NO_SESSION;
     private SortMode sortMode = SortMode.FIRST_SEEN;
@@ -141,6 +152,9 @@ public class MainActivity extends AppCompatActivity {
         int count;
         long firstSeenAt, lastSeenAt;
         double strongestRssi = -9999;
+        String animalLookupStatus = "NOT_REQUESTED";
+        String animalLookupError = "";
+        AnimalLookupClient.AnimalRecord animal;
         final LinkedHashMap<String, AntennaRecord> antennas = new LinkedHashMap<>();
     }
 
@@ -161,6 +175,7 @@ public class MainActivity extends AppCompatActivity {
         setupListeners();
         adapter = new ArrayAdapter<>(this, R.layout.list_item_tag, displayLines);
         listTags.setAdapter(adapter);
+        loadAnimalCache();
         restoreSession();
         refreshDisplay();
         updateContextBar();
@@ -202,6 +217,11 @@ public class MainActivity extends AppCompatActivity {
         btnSort.setOnClickListener(v -> cycleSort());
         btnCaptureContext.setOnClickListener(v -> captureContext());
         btnRetryContext.setOnClickListener(v -> syncContext());
+        listTags.setOnItemClickListener((parent, view, position, id) -> {
+            if (position >= 0 && position < displayTagRecords.size()) {
+                showAnimalCard(displayTagRecords.get(position));
+            }
+        });
         editSearch.addTextChangedListener(new TextWatcher() {
             public void beforeTextChanged(CharSequence s, int st, int c, int a) {}
             public void onTextChanged(CharSequence s, int st, int b, int c) { refreshDisplay(); }
@@ -269,7 +289,7 @@ public class MainActivity extends AppCompatActivity {
         tags.clear(); totalReads = 0; sessionId = UUID.randomUUID().toString(); sessionName = name;
         sessionSite = site; sessionOperator = operator; sessionNotes = notes; sessionProfile = profile;
         startedAt = System.currentTimeMillis(); endedAt = pauseStartedAt = totalPausedMs = totalActiveMs = activeStartedAt = 0L;
-        resetContext(); state = SessionState.READY; editSearch.setText(""); saveSession(); refreshDisplay();
+        resetContext(); animalSettingsPromptShown = false; state = SessionState.READY; editSearch.setText(""); saveSession(); refreshDisplay();
         setStatus("New session ready"); updateControls(); captureContext();
     }
 
@@ -346,14 +366,59 @@ public class MainActivity extends AppCompatActivity {
         @Override public void callback(UHFTAGInfo info) {
             if (info == null || state != SessionState.SCANNING) return;
             String epc = info.getEPC(); if (epc == null || epc.trim().isEmpty()) return;
-            String ant = String.valueOf(info.getAnt()); double rssi = parseDouble(info.getRssi()); long now = System.currentTimeMillis();
+            epc = epc.trim();
+            String ant = String.valueOf(info.getAnt());
+            double rssi = parseDouble(info.getRssi());
+            long now = System.currentTimeMillis();
+            boolean lookupNeeded = false;
+
             synchronized (tags) {
-                TagRecord t = tags.get(epc); if (t == null) { t = new TagRecord(); t.epc = epc; t.firstSeenAt = now; tags.put(epc, t); }
-                t.count++; t.lastSeenAt = now; t.strongestRssi = Math.max(t.strongestRssi, rssi);
-                AntennaRecord ar = t.antennas.get(ant); if (ar == null) { ar = new AntennaRecord(); ar.firstSeenAt = now; t.antennas.put(ant, ar); }
-                ar.count++; ar.lastSeenAt = now; ar.latestRssi = rssi; ar.strongestRssi = Math.max(ar.strongestRssi, rssi); totalReads++;
+                TagRecord t = tags.get(epc);
+                if (t == null) {
+                    t = new TagRecord();
+                    t.epc = epc;
+                    t.firstSeenAt = now;
+                    tags.put(epc, t);
+
+                    AnimalLookupClient.AnimalRecord cached = getCachedAnimal(epc);
+                    if (cached != null) {
+                        t.animal = cached;
+                        if (isAnimalCacheFresh(cached)) {
+                            t.animalLookupStatus = "CACHED";
+                        } else {
+                            t.animalLookupStatus = "STALE_REFRESH";
+                            lookupNeeded = true;
+                        }
+                    } else {
+                        t.animalLookupStatus = "LOOKUP_PENDING";
+                        lookupNeeded = true;
+                    }
+                }
+
+                t.count++;
+                t.lastSeenAt = now;
+                t.strongestRssi = Math.max(t.strongestRssi, rssi);
+
+                AntennaRecord ar = t.antennas.get(ant);
+                if (ar == null) {
+                    ar = new AntennaRecord();
+                    ar.firstSeenAt = now;
+                    t.antennas.put(ant, ar);
+                }
+                ar.count++;
+                ar.lastSeenAt = now;
+                ar.latestRssi = rssi;
+                ar.strongestRssi = Math.max(ar.strongestRssi, rssi);
+                totalReads++;
             }
-            runOnUiThread(() -> { refreshDisplay(); saveSession(); });
+
+            boolean shouldLookup = lookupNeeded;
+            String lookupEpc = epc;
+            runOnUiThread(() -> {
+                if (shouldLookup) startAnimalLookup(lookupEpc, false);
+                refreshDisplay();
+                saveSession();
+            });
         }
     };
 
@@ -371,6 +436,315 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         return total;
+    }
+
+    private void startAnimalLookup(String epc, boolean force) {
+        if (epc == null || epc.trim().isEmpty()) return;
+        String cleanEpc = epc.trim();
+        String sheetId = prefs.getString(PREF_HERDMATE_SHEET_ID, "").trim();
+        String apiBase = prefs.getString(PREF_ANIMAL_API_BASE, DEFAULT_ANIMAL_API_BASE).trim();
+
+        TagRecord tag;
+        synchronized (tags) {
+            tag = tags.get(cleanEpc);
+            if (tag == null) return;
+            if ("LOOKING_UP".equals(tag.animalLookupStatus)) return;
+            if (!force && tag.animal != null && isAnimalCacheFresh(tag.animal)) return;
+
+            if (sheetId.isEmpty()) {
+                tag.animalLookupStatus = "SETUP_REQUIRED";
+                tag.animalLookupError = "Google Sheet ID is not configured";
+                refreshDisplay();
+                saveSession();
+                if (!animalSettingsPromptShown) {
+                    animalSettingsPromptShown = true;
+                    showAnimalLookupSettings();
+                }
+                return;
+            }
+
+            tag.animalLookupStatus = "LOOKING_UP";
+            tag.animalLookupError = "";
+        }
+
+        refreshDisplay();
+
+        animalLookupExecutor.submit(() -> {
+            AnimalLookupClient.Result result = AnimalLookupClient.lookup(
+                    apiBase,
+                    sheetId,
+                    cleanEpc,
+                    sessionSite.isEmpty() ? "Tag Reaper Sentinel" : sessionSite
+            );
+
+            runOnUiThread(() -> {
+                synchronized (tags) {
+                    TagRecord current = tags.get(cleanEpc);
+                    if (current == null) return;
+
+                    if (result.success && result.found && result.animal != null) {
+                        current.animal = result.animal;
+                        current.animalLookupStatus = "FOUND";
+                        current.animalLookupError = "";
+                        animalCache.put(animalCacheKey(cleanEpc), result.animal);
+                        saveAnimalCache();
+                    } else if (result.success) {
+                        current.animal = null;
+                        current.animalLookupStatus = "NOT_FOUND";
+                        current.animalLookupError = "No HerdMate animal matched this EPC";
+                    } else {
+                        current.animalLookupStatus = "ERROR";
+                        current.animalLookupError = result.error == null ? "Lookup failed" : result.error;
+                    }
+                }
+                refreshDisplay();
+                saveSession();
+            });
+        });
+    }
+
+    private void forceAnimalLookup(String epc) {
+        synchronized (tags) {
+            TagRecord tag = tags.get(epc);
+            if (tag != null) {
+                tag.animalLookupStatus = "NOT_REQUESTED";
+                tag.animalLookupError = "";
+            }
+        }
+        startAnimalLookup(epc, true);
+    }
+
+    private void showAnimalLookupSettings() {
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int) (18 * getResources().getDisplayMetrics().density);
+        form.setPadding(pad, 8, pad, 0);
+
+        EditText api = field(
+                "Animal API URL",
+                prefs.getString(PREF_ANIMAL_API_BASE, DEFAULT_ANIMAL_API_BASE)
+        );
+        EditText sheet = field(
+                "Google Sheet ID or full Sheet URL",
+                prefs.getString(PREF_HERDMATE_SHEET_ID, "")
+        );
+        TextView help = new TextView(this);
+        help.setText("Sentinel stores this on the reader. The Sheet ID is the text between /d/ and /edit in a Google Sheet URL.");
+        help.setPadding(0, 10, 0, 0);
+
+        form.addView(api);
+        form.addView(sheet);
+        form.addView(help);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("HerdMate Animal Lookup")
+                .setView(form)
+                .setNegativeButton("Cancel", null)
+                .setNeutralButton("Clear Cache", null)
+                .setPositiveButton("Save", null)
+                .create();
+
+        dialog.setOnShowListener(ignored -> {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                String cleanApi = api.getText().toString().trim();
+                while (cleanApi.endsWith("/")) {
+                    cleanApi = cleanApi.substring(0, cleanApi.length() - 1);
+                }
+                String cleanSheet = normalizeSheetId(sheet.getText().toString());
+
+                if (cleanApi.isEmpty()) {
+                    api.setError("API URL is required");
+                    return;
+                }
+                if (cleanSheet.isEmpty()) {
+                    sheet.setError("Google Sheet ID is required");
+                    return;
+                }
+
+                String previousSheet = prefs.getString(PREF_HERDMATE_SHEET_ID, "");
+                prefs.edit()
+                        .putString(PREF_ANIMAL_API_BASE, cleanApi)
+                        .putString(PREF_HERDMATE_SHEET_ID, cleanSheet)
+                        .apply();
+
+                if (!previousSheet.equals(cleanSheet)) {
+                    clearAnimalCache();
+                    synchronized (tags) {
+                        for (TagRecord tag : tags.values()) {
+                            tag.animal = null;
+                            tag.animalLookupStatus = "NOT_REQUESTED";
+                            tag.animalLookupError = "";
+                        }
+                    }
+                }
+
+                animalSettingsPromptShown = true;
+                setStatus("HerdMate animal lookup configured");
+                dialog.dismiss();
+                retryUnresolvedAnimalLookups();
+            });
+
+            dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v -> {
+                clearAnimalCache();
+                synchronized (tags) {
+                    for (TagRecord tag : tags.values()) {
+                        tag.animal = null;
+                        tag.animalLookupStatus = "NOT_REQUESTED";
+                        tag.animalLookupError = "";
+                    }
+                }
+                refreshDisplay();
+                saveSession();
+                setStatus("Animal cache cleared");
+            });
+        });
+
+        dialog.show();
+    }
+
+    private String normalizeSheetId(String value) {
+        if (value == null) return "";
+        String clean = value.trim();
+        int marker = clean.indexOf("/d/");
+        if (marker >= 0) {
+            int start = marker + 3;
+            int end = clean.indexOf('/', start);
+            if (end < 0) end = clean.length();
+            clean = clean.substring(start, end);
+        }
+        return clean.trim();
+    }
+
+    private void retryUnresolvedAnimalLookups() {
+        List<String> epcs = new ArrayList<>();
+        synchronized (tags) {
+            for (TagRecord tag : tags.values()) {
+                if (tag.animal == null
+                        || "ERROR".equals(tag.animalLookupStatus)
+                        || "NOT_FOUND".equals(tag.animalLookupStatus)
+                        || "SETUP_REQUIRED".equals(tag.animalLookupStatus)) {
+                    epcs.add(tag.epc);
+                }
+            }
+        }
+        for (String epc : epcs) {
+            startAnimalLookup(epc, true);
+        }
+    }
+
+    private String animalCacheKey(String epc) {
+        return prefs.getString(PREF_HERDMATE_SHEET_ID, "").trim() + "|" + epc.trim();
+    }
+
+    private AnimalLookupClient.AnimalRecord getCachedAnimal(String epc) {
+        return animalCache.get(animalCacheKey(epc));
+    }
+
+    private boolean isAnimalCacheFresh(AnimalLookupClient.AnimalRecord animal) {
+        if (animal == null || animal.cachedAt <= 0L) return false;
+        return System.currentTimeMillis() - animal.cachedAt <= ANIMAL_CACHE_TTL_MS;
+    }
+
+    private void loadAnimalCache() {
+        animalCache.clear();
+        try {
+            JSONObject root = new JSONObject(prefs.getString(PREF_ANIMAL_CACHE, "{}"));
+            java.util.Iterator<String> keys = root.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                JSONObject value = root.optJSONObject(key);
+                if (value != null) {
+                    animalCache.put(key, AnimalLookupClient.AnimalRecord.fromJson(value));
+                }
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void saveAnimalCache() {
+        JSONObject root = new JSONObject();
+        try {
+            for (Map.Entry<String, AnimalLookupClient.AnimalRecord> entry : animalCache.entrySet()) {
+                root.put(entry.getKey(), entry.getValue().toJson());
+            }
+            prefs.edit().putString(PREF_ANIMAL_CACHE, root.toString()).apply();
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void clearAnimalCache() {
+        animalCache.clear();
+        prefs.edit().remove(PREF_ANIMAL_CACHE).apply();
+    }
+
+    private void showAnimalCard(TagRecord tag) {
+        if (tag == null) return;
+
+        String title;
+        String message;
+        if (tag.animal != null) {
+            title = tag.animal.displayTitle();
+            message = tag.animal.detailText();
+        } else {
+            title = "Unknown animal";
+            String error = tag.animalLookupError == null ? "" : tag.animalLookupError.trim();
+            message = "EPC: " + tag.epc
+                    + "\nLookup status: " + tag.animalLookupStatus
+                    + (error.isEmpty() ? "" : "\nReason: " + error);
+        }
+
+        message += String.format(
+                Locale.US,
+                "\n\nSession evidence\nReads: %d\nStrongest RSSI: %.1f\nA1:%d  A2:%d  A3:%d  A4:%d",
+                tag.count,
+                tag.strongestRssi,
+                antennaCount(tag, "1"),
+                antennaCount(tag, "2"),
+                antennaCount(tag, "3"),
+                antennaCount(tag, "4")
+        );
+
+        new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setMessage(message)
+                .setPositiveButton("Refresh Record", (dialog, which) -> forceAnimalLookup(tag.epc))
+                .setNeutralButton("Lookup Settings", (dialog, which) -> showAnimalLookupSettings())
+                .setNegativeButton("Close", null)
+                .show();
+    }
+
+    private String animalDisplayStatus(TagRecord tag) {
+        if (tag.animal != null) {
+            String suffix = "CACHED".equals(tag.animalLookupStatus)
+                    ? "  [LOCAL CACHE]"
+                    : "STALE_REFRESH".equals(tag.animalLookupStatus)
+                    ? "  [REFRESHING]"
+                    : "";
+            return tag.animal.displayTitle() + suffix;
+        }
+
+        if ("LOOKING_UP".equals(tag.animalLookupStatus)
+                || "LOOKUP_PENDING".equals(tag.animalLookupStatus)) {
+            return "LOOKING UP ANIMAL…";
+        }
+        if ("SETUP_REQUIRED".equals(tag.animalLookupStatus)) {
+            return "HERDMATE LOOKUP NEEDS SETUP";
+        }
+        if ("NOT_FOUND".equals(tag.animalLookupStatus)) {
+            return "UNKNOWN ANIMAL — NO SHEET MATCH";
+        }
+        if ("ERROR".equals(tag.animalLookupStatus)) {
+            return "ANIMAL LOOKUP ERROR";
+        }
+        return "ANIMAL NOT LOOKED UP";
+    }
+
+    private boolean matchesSearch(TagRecord tag, String query) {
+        if (query.isEmpty()) return true;
+        if (tag.epc != null && tag.epc.toLowerCase(Locale.US).contains(query)) return true;
+        if (tag.animal == null) return false;
+        return tag.animal.displayTitle().toLowerCase(Locale.US).contains(query)
+                || tag.animal.detailText().toLowerCase(Locale.US).contains(query);
     }
 
     private void captureContext() {
@@ -655,22 +1029,51 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void refreshDisplay() {
-        List<TagRecord> list; synchronized (tags) { list = new ArrayList<>(tags.values()); }
-        if (sortMode == SortMode.MOST_READS) Collections.sort(list, (a, b) -> Integer.compare(b.count, a.count));
-        else if (sortMode == SortMode.EPC) Collections.sort(list, Comparator.comparing(a -> a.epc));
-        else Collections.sort(list, Comparator.comparingLong(a -> a.firstSeenAt));
-        String q = editSearch == null ? "" : editSearch.getText().toString().trim().toLowerCase(Locale.US);
-        displayLines.clear(); for (TagRecord t : list) if (q.isEmpty() || t.epc.toLowerCase(Locale.US).contains(q)) {
-            int a1 = antennaCount(t, "1");
-            int a2 = antennaCount(t, "2");
-            int a3 = antennaCount(t, "3");
-            int a4 = antennaCount(t, "4");
-            displayLines.add(String.format(Locale.US,
-                    "%s   Reads %d   RSSI %.1f   A1:%d A2:%d A3:%d A4:%d   %s → %s",
-                    t.epc, t.count, t.strongestRssi, a1, a2, a3, a4,
-                    dateTime.format(new Date(t.firstSeenAt)),
-                    dateTime.format(new Date(t.lastSeenAt))));
+        List<TagRecord> list;
+        synchronized (tags) {
+            list = new ArrayList<>(tags.values());
         }
+
+        if (sortMode == SortMode.MOST_READS) {
+            Collections.sort(list, (a, b) -> Integer.compare(b.count, a.count));
+        } else if (sortMode == SortMode.EPC) {
+            Collections.sort(list, Comparator.comparing(a -> a.epc));
+        } else {
+            Collections.sort(list, Comparator.comparingLong(a -> a.firstSeenAt));
+        }
+
+        String query = editSearch == null
+                ? ""
+                : editSearch.getText().toString().trim().toLowerCase(Locale.US);
+
+        displayLines.clear();
+        displayTagRecords.clear();
+
+        for (TagRecord tag : list) {
+            if (!matchesSearch(tag, query)) continue;
+
+            int a1 = antennaCount(tag, "1");
+            int a2 = antennaCount(tag, "2");
+            int a3 = antennaCount(tag, "3");
+            int a4 = antennaCount(tag, "4");
+
+            displayLines.add(String.format(
+                    Locale.US,
+                    "%s\n%s   Reads %d   RSSI %.1f   A1:%d A2:%d A3:%d A4:%d   %s → %s",
+                    animalDisplayStatus(tag),
+                    tag.epc,
+                    tag.count,
+                    tag.strongestRssi,
+                    a1,
+                    a2,
+                    a3,
+                    a4,
+                    dateTime.format(new Date(tag.firstSeenAt)),
+                    dateTime.format(new Date(tag.lastSeenAt))
+            ));
+            displayTagRecords.add(tag);
+        }
+
         if (adapter != null) adapter.notifyDataSetChanged();
         if (txtTotalReads != null) txtTotalReads.setText("Reads: " + totalReads);
         if (txtUniqueTags != null) txtUniqueTags.setText("Tags: " + tags.size());
@@ -713,7 +1116,7 @@ public class MainActivity extends AppCompatActivity {
     private JSONObject buildSessionJson() {
         JSONObject root = new JSONObject();
         try {
-            root.put("schemaVersion", "0.6"); root.put("sessionId", sessionId == null ? "" : sessionId);
+            root.put("schemaVersion", "0.7"); root.put("sessionId", sessionId == null ? "" : sessionId);
             root.put("sessionName", sessionName); root.put("site", sessionSite); root.put("operator", sessionOperator);
             root.put("notes", sessionNotes); root.put("readerProfile", sessionProfile); root.put("state", state.name());
             root.put("startedAt", startedAt); root.put("endedAt", endedAt); root.put("totalReads", totalReads); root.put("uniqueTags", tags.size());
@@ -731,24 +1134,71 @@ public class MainActivity extends AppCompatActivity {
                 JSONObject o = new JSONObject(); o.put("epc", t.epc); o.put("count", t.count); o.put("firstSeenAt", t.firstSeenAt); o.put("lastSeenAt", t.lastSeenAt); o.put("strongestRssi", t.strongestRssi);
                 JSONArray ants = new JSONArray(); for (Map.Entry<String, AntennaRecord> e : t.antennas.entrySet()) { AntennaRecord ar = e.getValue(); JSONObject ao = new JSONObject();
                     ao.put("antenna", e.getKey()); ao.put("count", ar.count); ao.put("strongestRssi", ar.strongestRssi); ao.put("latestRssi", ar.latestRssi); ao.put("firstSeenAt", ar.firstSeenAt); ao.put("lastSeenAt", ar.lastSeenAt); ants.put(ao); }
-                o.put("antennas", ants); arr.put(o); } }
+                o.put("antennas", ants);
+                o.put("animalLookupStatus", t.animalLookupStatus);
+                o.put("animalLookupError", t.animalLookupError);
+                if (t.animal != null) o.put("animal", t.animal.toJson());
+                arr.put(o); } }
             root.put("tags", arr);
         } catch (Exception ignored) {}
         return root;
     }
 
     private String buildCsv() {
-        StringBuilder b = new StringBuilder();
-        b.append("session_id,session_name,site,operator,notes,profile,started_at,ended_at,total_reads,unique_tags,latitude,longitude,accuracy_m,altitude_m,speed_mps,heading_deg,location_status,weather_status,temp,condition,wind,humidity,epc,tag_reads,first_seen,last_seen,strongest_rssi,antenna_counts\n");
-        synchronized (tags) { for (TagRecord t : tags.values()) {
-            StringBuilder ac = new StringBuilder(); for (Map.Entry<String, AntennaRecord> e : t.antennas.entrySet()) { if (ac.length() > 0) ac.append(";"); ac.append(e.getKey()).append(":").append(e.getValue().count); }
-            row(b, sessionId, sessionName, sessionSite, sessionOperator, sessionNotes, sessionProfile,
-                    fmt(startedAt), fmt(endedAt), String.valueOf(totalReads), String.valueOf(tags.size()),
-                    gpsCaptured ? String.valueOf(latitude) : "", gpsCaptured ? String.valueOf(longitude) : "", gpsCaptured ? String.valueOf(accuracy) : "",
-                    gpsCaptured ? String.valueOf(altitude) : "", gpsCaptured ? String.valueOf(speed) : "", gpsCaptured ? String.valueOf(heading) : "",
-                    locationStatus, weatherStatus, temperature, condition, wind, humidity, t.epc, String.valueOf(t.count), fmt(t.firstSeenAt), fmt(t.lastSeenAt), String.valueOf(t.strongestRssi), ac.toString());
-        } }
-        return b.toString();
+        StringBuilder builder = new StringBuilder();
+        builder.append("session_id,session_name,site,operator,notes,profile,started_at,ended_at,total_reads,unique_tags,latitude,longitude,accuracy_m,altitude_m,speed_mps,heading_deg,location_status,weather_status,temp,condition,wind,humidity,epc,animal_lookup_status,animal_tag,animal_status,animal_sex,animal_type,animal_breed,animal_source,animal_pasture,tag_reads,first_seen,last_seen,strongest_rssi,antenna_counts\n");
+
+        synchronized (tags) {
+            for (TagRecord tag : tags.values()) {
+                StringBuilder antennaCounts = new StringBuilder();
+                for (Map.Entry<String, AntennaRecord> entry : tag.antennas.entrySet()) {
+                    if (antennaCounts.length() > 0) antennaCounts.append(";");
+                    antennaCounts.append(entry.getKey()).append(":").append(entry.getValue().count);
+                }
+
+                AnimalLookupClient.AnimalRecord animal = tag.animal;
+                row(
+                        builder,
+                        sessionId,
+                        sessionName,
+                        sessionSite,
+                        sessionOperator,
+                        sessionNotes,
+                        sessionProfile,
+                        fmt(startedAt),
+                        fmt(endedAt),
+                        String.valueOf(totalReads),
+                        String.valueOf(tags.size()),
+                        gpsCaptured ? String.valueOf(latitude) : "",
+                        gpsCaptured ? String.valueOf(longitude) : "",
+                        gpsCaptured ? String.valueOf(accuracy) : "",
+                        gpsCaptured ? String.valueOf(altitude) : "",
+                        gpsCaptured ? String.valueOf(speed) : "",
+                        gpsCaptured ? String.valueOf(heading) : "",
+                        locationStatus,
+                        weatherStatus,
+                        temperature,
+                        condition,
+                        wind,
+                        humidity,
+                        tag.epc,
+                        tag.animalLookupStatus,
+                        animal == null ? "" : animal.primaryId(),
+                        animal == null ? "" : animal.status,
+                        animal == null ? "" : animal.sex,
+                        animal == null ? "" : animal.type,
+                        animal == null ? "" : animal.breed,
+                        animal == null ? "" : animal.source,
+                        animal == null ? "" : animal.pasture,
+                        String.valueOf(tag.count),
+                        fmt(tag.firstSeenAt),
+                        fmt(tag.lastSeenAt),
+                        String.valueOf(tag.strongestRssi),
+                        antennaCounts.toString()
+                );
+            }
+        }
+        return builder.toString();
     }
 
     private void row(StringBuilder b, String... values) { for (int i = 0; i < values.length; i++) { if (i > 0) b.append(','); b.append(csv(values[i])); } b.append('\n'); }
@@ -772,8 +1222,34 @@ public class MainActivity extends AppCompatActivity {
         resetContext(); JSONObject ctx = root.optJSONObject("context"); if (ctx != null) { gpsCaptured = ctx.optBoolean("gpsCaptured"); latitude = ctx.optDouble("latitude"); longitude = ctx.optDouble("longitude"); accuracy = (float) ctx.optDouble("accuracyMeters"); altitude = ctx.optDouble("altitudeMeters"); speed = (float) ctx.optDouble("speedMetersPerSecond"); heading = (float) ctx.optDouble("headingDegrees"); gpsTimestamp = ctx.optLong("deviceTimestamp");
             JSONObject loc = ctx.optJSONObject("sagewireLocation"); if (loc != null) { locationStatus = loc.optString("status", "PENDING"); locationHttpCode = loc.optInt("httpCode"); locationRaw = loc.optString("raw"); locationError = loc.optString("error"); }
             JSONObject wx = ctx.optJSONObject("weather"); if (wx != null) { weatherStatus = wx.optString("status", "PENDING"); weatherHttpCode = wx.optInt("httpCode"); weatherRaw = wx.optString("raw"); weatherError = wx.optString("error"); temperature = wx.optString("temperature"); condition = wx.optString("condition"); wind = wx.optString("wind"); humidity = wx.optString("humidity"); weatherCached = wx.optBoolean("cached"); weatherFetchedAt = wx.optString("fetchedAt"); } }
-        tags.clear(); JSONArray arr = root.optJSONArray("tags"); if (arr != null) for (int i = 0; i < arr.length(); i++) { JSONObject o = arr.getJSONObject(i); TagRecord t = new TagRecord(); t.epc = o.optString("epc"); t.count = o.optInt("count"); t.firstSeenAt = o.optLong("firstSeenAt"); t.lastSeenAt = o.optLong("lastSeenAt"); t.strongestRssi = o.optDouble("strongestRssi", -9999);
-            JSONArray ants = o.optJSONArray("antennas"); if (ants != null) for (int j = 0; j < ants.length(); j++) { JSONObject ao = ants.getJSONObject(j); AntennaRecord ar = new AntennaRecord(); ar.count = ao.optInt("count"); ar.strongestRssi = ao.optDouble("strongestRssi", -9999); ar.latestRssi = ao.optDouble("latestRssi", -9999); ar.firstSeenAt = ao.optLong("firstSeenAt"); ar.lastSeenAt = ao.optLong("lastSeenAt"); t.antennas.put(ao.optString("antenna"), ar); } tags.put(t.epc, t); }
+        tags.clear();
+        JSONArray arr = root.optJSONArray("tags");
+        if (arr != null) for (int i = 0; i < arr.length(); i++) {
+            JSONObject o = arr.getJSONObject(i);
+            TagRecord t = new TagRecord();
+            t.epc = o.optString("epc");
+            t.count = o.optInt("count");
+            t.firstSeenAt = o.optLong("firstSeenAt");
+            t.lastSeenAt = o.optLong("lastSeenAt");
+            t.strongestRssi = o.optDouble("strongestRssi", -9999);
+            t.animalLookupStatus = o.optString("animalLookupStatus", "NOT_REQUESTED");
+            t.animalLookupError = o.optString("animalLookupError", "");
+            JSONObject animal = o.optJSONObject("animal");
+            if (animal != null) t.animal = AnimalLookupClient.AnimalRecord.fromJson(animal);
+
+            JSONArray ants = o.optJSONArray("antennas");
+            if (ants != null) for (int j = 0; j < ants.length(); j++) {
+                JSONObject ao = ants.getJSONObject(j);
+                AntennaRecord ar = new AntennaRecord();
+                ar.count = ao.optInt("count");
+                ar.strongestRssi = ao.optDouble("strongestRssi", -9999);
+                ar.latestRssi = ao.optDouble("latestRssi", -9999);
+                ar.firstSeenAt = ao.optLong("firstSeenAt");
+                ar.lastSeenAt = ao.optLong("lastSeenAt");
+                t.antennas.put(ao.optString("antenna"), ar);
+            }
+            tags.put(t.epc, t);
+        }
     }
 
     private void archiveSession() {
@@ -810,8 +1286,32 @@ public class MainActivity extends AppCompatActivity {
     private String safeFile(String s) { String v = s == null || s.trim().isEmpty() ? "sentinel-session" : s.trim(); return v.replaceAll("[^A-Za-z0-9._-]+", "-"); }
 
     private void showProfilesDialog() {
-        List<ReaderProfile> ps = loadProfiles(); List<String> actions = new ArrayList<>(); actions.add("Save current settings as new profile"); for (ReaderProfile p : ps) actions.add("Load: " + p.name); actions.add("Delete a profile");
-        new AlertDialog.Builder(this).setTitle("Reader Profiles").setItems(actions.toArray(new String[0]), (d, i) -> { if (i == 0) showSaveProfile(); else if (i == actions.size() - 1) showDeleteProfile(); else { ReaderProfile p = ps.get(i - 1); applyProfile(p); p.lastUsedAt = System.currentTimeMillis(); saveProfile(p); setStatus("Profile loaded: " + p.name); } }).setNegativeButton("Close", null).show();
+        List<ReaderProfile> profiles = loadProfiles();
+        List<String> actions = new ArrayList<>();
+        actions.add("HerdMate animal lookup settings");
+        actions.add("Save current antenna settings as new profile");
+        for (ReaderProfile profile : profiles) actions.add("Load: " + profile.name);
+        actions.add("Delete a profile");
+
+        new AlertDialog.Builder(this)
+                .setTitle("Sentinel Settings and Profiles")
+                .setItems(actions.toArray(new String[0]), (dialog, index) -> {
+                    if (index == 0) {
+                        showAnimalLookupSettings();
+                    } else if (index == 1) {
+                        showSaveProfile();
+                    } else if (index == actions.size() - 1) {
+                        showDeleteProfile();
+                    } else {
+                        ReaderProfile profile = profiles.get(index - 2);
+                        applyProfile(profile);
+                        profile.lastUsedAt = System.currentTimeMillis();
+                        saveProfile(profile);
+                        setStatus("Profile loaded: " + profile.name);
+                    }
+                })
+                .setNegativeButton("Close", null)
+                .show();
     }
 
     private void showSaveProfile() {
@@ -859,6 +1359,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override protected void onDestroy() {
         stopGpsSearch();
+        animalLookupExecutor.shutdownNow();
         clock.removeCallbacks(clockTick);
         try {
             if (reader != null && state == SessionState.SCANNING) reader.stopInventory();
