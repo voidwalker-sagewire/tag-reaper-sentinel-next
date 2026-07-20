@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#080b10"
+    android:padding="8dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:gravity="center_vertical"
+        android:paddingStart="10dp"
+        android:paddingEnd="10dp"
+        android:background="#111827"
+        android:text="TAG REAPER SENTINEL | SCALE DEBUG LOG"
+        android:textColor="#38bdf8"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/txtScaleDeviceInfo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="48dp"
+        android:layout_marginTop="4dp"
+        android:background="#0f172a"
+        android:padding="8dp"
+        android:text="DEVICE | Detecting..."
+        android:textColor="#e5e7eb"
+        android:textSize="12sp"
+        android:textStyle="bold" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="4dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="#111827"
+        android:padding="4dp">
+
+        <TextView
+            android:layout_width="95dp"
+            android:layout_height="wrap_content"
+            android:text="UART PATH"
+            android:textColor="#94a3b8"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <Spinner
+            android:id="@+id/spinnerScaleDevicePath"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:background="#e5e7eb" />
+
+        <TextView
+            android:layout_width="70dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="BAUD"
+            android:textColor="#94a3b8"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <Spinner
+            android:id="@+id/spinnerScaleBaud"
+            android:layout_width="140dp"
+            android:layout_height="40dp"
+            android:background="#e5e7eb" />
+
+        <TextView
+            android:layout_width="100dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="8-N-1"
+            android:textColor="#22c55e"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="4dp"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btnStartSerial"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="4dp"
+            android:text="START SERIAL"
+            android:textSize="11sp" />
+
+        <Button
+            android:id="@+id/btnStopSerial"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="4dp"
+            android:text="STOP SERIAL"
+            android:textSize="11sp"
+            android:enabled="false" />
+
+        <Button
+            android:id="@+id/btnClearSerial"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="4dp"
+            android:text="CLEAR LOG"
+            android:textSize="11sp" />
+
+        <Button
+            android:id="@+id/btnCopySerial"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:text="COPY LOG"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/txtSerialStatus"
+        android:layout_width="match_parent"
+        android:layout_height="36dp"
+        android:layout_marginTop="2dp"
+        android:gravity="center_vertical"
+        android:background="#0f172a"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:text="SERIAL STATUS | CLOSED"
+        android:textColor="#fbbf24"
+        android:textSize="12sp"
+        android:textStyle="bold" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="36dp"
+        android:orientation="horizontal"
+        android:background="#111827"
+        android:gravity="center_vertical"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp">
+
+        <TextView
+            android:id="@+id/txtScaleCounters"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Bytes: 0 | Chunks: 0 | Complete lines: 0"
+            android:textColor="#e5e7eb"
+            android:textSize="12sp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="RAW CAPTURE ONLY — NO WEIGHT PARSING"
+            android:textColor="#ef4444"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/txtScaleLatestLine"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:gravity="center_vertical"
+        android:background="#052e16"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:text="LATEST COMPLETE LINE | —"
+        android:textColor="#86efac"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        android:singleLine="true"
+        android:ellipsize="end" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="4dp"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="4dp"
+            android:orientation="vertical"
+            android:background="#05070a">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="32dp"
+                android:gravity="center_vertical"
+                android:paddingStart="8dp"
+                android:text="RAW ASCII / PRINTABLE VIEW"
+                android:textColor="#38bdf8"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:fillViewport="true">
+
+                <TextView
+                    android:id="@+id/txtScaleAsciiLog"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="8dp"
+                    android:textColor="#e5e7eb"
+                    android:textSize="11sp"
+                    android:fontFamily="monospace"
+                    android:textIsSelectable="true" />
+            </ScrollView>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:background="#05070a">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="32dp"
+                android:gravity="center_vertical"
+                android:paddingStart="8dp"
+                android:text="RAW HEX BYTES"
+                android:textColor="#38bdf8"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:fillViewport="true">
+
+                <TextView
+                    android:id="@+id/txtScaleHexLog"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:padding="8dp"
+                    android:textColor="#fbbf24"
+                    android:textSize="11sp"
+                    android:fontFamily="monospace"
+                    android:textIsSelectable="true" />
+            </ScrollView>
+        </LinearLayout>
+    </LinearLayout>
+
+</LinearLayout>

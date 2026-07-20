@@ -80,7 +80,7 @@ public class MainActivity extends AppCompatActivity {
     private boolean readerConnected;
 
     private Button btnConnect, btnNewSession, btnStart, btnPause, btnEndSession, btnClear;
-    private Button btnProfiles, btnHistory, btnExportCsv, btnExportJson, btnShare, btnSort;
+    private Button btnProfiles, btnHistory, btnExportCsv, btnExportJson, btnShare, btnSort, btnScaleDebug;
     private Button btnCaptureContext, btnRetryContext;
     private CheckBox chkAnt1, chkAnt2, chkAnt3, chkAnt4;
     private SeekBar seekAnt1Power, seekAnt2Power, seekAnt3Power, seekAnt4Power;
@@ -190,6 +190,7 @@ public class MainActivity extends AppCompatActivity {
         btnProfiles = findViewById(R.id.btnProfiles); btnHistory = findViewById(R.id.btnHistory);
         btnExportCsv = findViewById(R.id.btnExportCsv); btnExportJson = findViewById(R.id.btnExportJson);
         btnShare = findViewById(R.id.btnShare); btnSort = findViewById(R.id.btnSort);
+        btnScaleDebug = findViewById(R.id.btnScaleDebug);
         btnCaptureContext = findViewById(R.id.btnCaptureContext); btnRetryContext = findViewById(R.id.btnRetryContext);
         chkAnt1 = findViewById(R.id.chkAnt1); chkAnt2 = findViewById(R.id.chkAnt2);
         chkAnt3 = findViewById(R.id.chkAnt3); chkAnt4 = findViewById(R.id.chkAnt4);
@@ -214,6 +215,7 @@ public class MainActivity extends AppCompatActivity {
         btnExportCsv.setOnClickListener(v -> beginExport(true));
         btnExportJson.setOnClickListener(v -> beginExport(false));
         btnShare.setOnClickListener(v -> shareSession());
+        btnScaleDebug.setOnClickListener(v -> startActivity(new Intent(this, ScaleDebugActivity.class)));
         btnSort.setOnClickListener(v -> cycleSort());
         btnCaptureContext.setOnClickListener(v -> captureContext());
         btnRetryContext.setOnClickListener(v -> syncContext());

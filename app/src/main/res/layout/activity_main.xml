@@ -190,10 +190,20 @@
             android:layout_width="0dp"
             android:layout_height="38dp"
             android:layout_weight="1"
+            android:layout_marginEnd="4dp"
             android:text="Share"
             android:textSize="10sp"
             android:padding="2dp"
             android:enabled="false" />
+
+        <Button
+            android:id="@+id/btnScaleDebug"
+            android:layout_width="0dp"
+            android:layout_height="38dp"
+            android:layout_weight="1"
+            android:text="Scale Debug"
+            android:textSize="10sp"
+            android:padding="2dp" />
     </LinearLayout>
 
     <!-- Antenna enable controls -->
