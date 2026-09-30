@@ -171,13 +171,9 @@ Decision intent: Location/weather enrichment and HerdMate synchronization are la
 
 B-001 — No received UART bytes
 State: RESOLVED — field receive proven 2026-09-30
-Evidence: /dev/ttyHS2 opens successfully, but all counters remain zero.
+Original evidence: direct openSerail() opened /dev/ttyHS2, but all counters remained zero.
 Resolution evidence: Version 0.4.1 initialized SDK module 10 successfully and received continuous indicator data. Photograph 25988.jpg shows 2,286 bytes, 127 chunks, and 127 complete lines.
-Candidate causes:
-1. Extended UART requires Module.init(10, ...) rather than direct openSerail(...).
-2. TX/RX/GND wiring or adapter crossover is incorrect.
-3. Indicator is not actually transmitting despite configured C18/C19 values.
-4. Reader port electrical standard or pin mapping differs from the assumed RS-232 connection.
+Verified cause: the C316H extended UART required Module.init(10, ...) rather than direct openSerail(...).
 
 B-002 — Reader-side DB9 pinout
 State: OPEN
@@ -193,7 +189,7 @@ Evidence: ASCII frame ST,GS,+ 125lb with CR/LF termination was captured alongsid
 WORK ORDER: TRS-TX-001-EUI
 Title: Initialize and prove the extended UART receive path
 Revision: 1
-State: IMPLEMENTED — build and core serial receive field-verified; restart/RFID checks pending
+State: VERIFIED — field acceptance pending Michael confirmation
 Proposed: 2026-09-30
 Ratified: 2026-09-30 by Michael
 Assigned: 2026-09-30 by Michael
@@ -240,17 +236,90 @@ Implementation evidence:
 - Acceptance item 2, Scale Debug opens the extended UART without crashing: SATISFIED IN FIELD.
 - Acceptance item 3, Bytes and Chunks advance above zero: SATISFIED IN FIELD — 2,286 bytes / 127 chunks shown.
 - Acceptance item 4, raw frame preserved in printable ASCII and hex: SATISFIED IN FIELD — ST,GS,+ 125lb captured.
-- Acceptance item 5, stop/restart works without rebooting: PENDING FIELD VERIFICATION.
-- Acceptance item 6, existing RFID session operation remains intact: PENDING REGRESSION CHECK.
+- Acceptance item 5, stop/restart works without rebooting: SATISFIED IN FIELD.
+- Acceptance item 6, existing RFID session operation remains intact: SATISFIED IN FIELD — successful main-screen scan after serial restart.
+
+Verification conclusion:
+- All six acceptance conditions passed.
+- TRS-TX-001-EUI Revision 1 advanced from IMPLEMENTED to VERIFIED on 2026-09-30.
+- Michael retains authority for the separate FIELD ACCEPTED transition.
+
+WORK ORDER: TRS-TX-002-RWA
+Title: Associate stable livestock weights with RFID records
+Revision: 1
+State: PROPOSED
+Proposed: 2026-09-30
+Authority required: Michael ratification and assignment
+Target base: codex/trs-tx-001-eui after TRS-TX-001-EUI verification
+
+Objective:
+- Combine the proven scale stream and RFID inventory stream into one auditable livestock weigh record without weakening the working reader or raw diagnostic path.
+
+Proposed operating flow:
+1. Operator starts or resumes a Sentinel session and enters Weigh Mode.
+2. The configured chute antenna observes the animal EPC.
+3. The scale parser receives SellEton ASCII frames and recognizes stable/gross/net/sign/value/unit fields.
+4. A candidate weight is locked only after three stable frames agree within one scale division.
+5. The app associates the candidate with one recently observed chute EPC.
+6. The app presents EPC, matched HerdMate animal, weight, unit, antenna, and timestamp for operator acceptance.
+7. Accepted records are stored with the session and survive app closure.
+
+Association safety rules:
+- Exactly one eligible chute EPC in the association window permits automatic staging.
+- Zero EPCs produces an UNMATCHED WEIGHT candidate; no silent assignment.
+- Multiple EPCs produce an AMBIGUOUS candidate; the operator must choose or reject.
+- Never choose an animal solely by strongest RSSI when multiple eligible tags are present.
+- A new stable weight must not overwrite an earlier accepted record.
+- Raw scale frame and RFID evidence remain attached for audit and troubleshooting.
+
+Proposed data record:
+- weightEventId UUID
+- sessionId
+- epc
+- matched animal identifier when available
+- weight value normalized to pounds
+- original numeric value and unit
+- stable flag
+- gross/net status
+- sign
+- raw scale frame
+- scale timestamp
+- accepted timestamp
+- antenna identifier
+- RFID first/last seen timestamps within the association window
+- RFID read count and strongest RSSI within that window
+- association state: MATCHED, UNMATCHED, AMBIGUOUS, REJECTED
+- operator acceptance state and operator identity
+
+Proposed implementation scope:
+- Extract the working module-10 serial logic into a reusable scale component while preserving Scale Debug.
+- Add a tested SellEton frame parser for the observed ST,GS,+ 125lb format and documented variants.
+- Add a Weigh Mode panel to the main Sentinel screen.
+- Add per-session WeightEvent persistence and restore support.
+- Advance session JSON schema from 0.7 to 0.8 with backward-compatible loading.
+- Include accepted weight events in JSON and CSV exports.
+- Display accepted weights in session history and tag/animal detail.
+- Preserve existing RFID, animal lookup, GPS, weather, and antenna-power behavior.
+
+Acceptance evidence:
+1. Existing RFID inventory and Scale Debug regression tests pass.
+2. Stable 125 lb input parses as stable, gross, positive, 125 pounds.
+3. One eligible EPC plus a stable weight stages the correct combined record.
+4. Zero and multiple EPC cases cannot silently create a matched record.
+5. Operator can accept or reject a staged record.
+6. Accepted record survives force-stop/reopen and session restore.
+7. JSON and CSV exports contain EPC, animal identity when available, weight, timestamp, antenna, and raw evidence.
+8. Android build and automated tests pass before field installation.
+
+Explicit exclusions:
+- No HerdMate write-back or cloud synchronization.
+- No automatic assignment when multiple cattle tags are in range.
+- No removal of the Scale Debug evidence screen.
+- No claim of legal-for-trade weighing certification.
 
 ⊞ BLOCK 11 — PLANNED FOLLOW-ON WORK
 
 These items are CAPTURED only and require separate work orders:
-- Parse documented SellEton ASCII frames.
-- Distinguish stable/unstable and gross/net frames.
-- Select and display the livestock locked/held weight.
-- Associate the accepted weight with EPC, antenna, timestamp, and session.
-- Store a durable offline record.
 - Add export/synchronization and optional context enrichment.
 - Design a field-friendly recovery path for disconnects, bad frames, and reader restarts.
 
@@ -260,17 +329,17 @@ Current authorized state:
 - TRS-TX-001-EUI Revision 1 was ratified and assigned by Michael.
 - Implementation and build verification are complete on codex/trs-tx-001-eui.
 - Core UART initialization and receive are proven on the physical reader.
-- The work order remains below VERIFIED until stop/restart and RFID regression checks pass.
+- TRS-TX-001-EUI is VERIFIED; FIELD ACCEPTED remains Michael's decision.
+- TRS-TX-002-RWA Revision 1 is PROPOSED and is not authorized for implementation.
 
 Next field action:
 - Preserve the currently working cable and adapter arrangement.
-- Tap STOP SERIAL, then START SERIAL, without rebooting the reader; confirm new frames resume.
-- Return to the RFID screen and complete a short known-tag inventory scan.
-- If both checks pass, advance TRS-TX-001-EUI from IMPLEMENTED to VERIFIED.
+- Michael may field-accept TRS-TX-001-EUI.
+- Michael may ratify TRS-TX-002-RWA as written, ratify it with revisions, or reject it.
 
-Recommended parallel field check after ratification:
-- Verify indicator TX-to-reader RX and common ground with an authoritative pinout, breakout tester, meter, or known-good RS-232 receiver.
-- Do not assume the gender changer or null-modem adapter performs the required crossover.
+Physical wiring rule:
+- The installed cable and adapter arrangement is operationally proven. Preserve it as the known-good configuration.
+- Reader-side pin-number documentation remains desirable but is no longer a blocking field check.
 
 ⊞ BLOCK 13 — CHANGE LOG
 
@@ -287,3 +356,6 @@ Recommended parallel field check after ratification:
 - Field evidence 25988.jpg proved module 10 initialization and continuous receive on /dev/ttyHS2 at 9600 8-N-1.
 - Captured 2,286 bytes, 127 chunks, 127 complete lines, and the frame ST,GS,+ 125lb with raw hex evidence.
 - Resolved B-001 and B-003; retained B-002 as a documentation gap that no longer blocks operation.
+- Field test confirmed stop/start serial recovery without reboot and successful RFID scanning afterward.
+- Advanced TRS-TX-001-EUI Revision 1 to VERIFIED; field acceptance remains Michael's decision.
+- Proposed TRS-TX-002-RWA Revision 1 for auditable RFID/weight association and session persistence.
