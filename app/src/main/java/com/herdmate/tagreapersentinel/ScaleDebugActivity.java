@@ -36,6 +36,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class ScaleDebugActivity extends AppCompatActivity {
 
+    private static final int EXTENDED_UART_MODULE = 10;
     private static final int DATA_BITS = 8;
     private static final int STOP_BITS = 1;
     private static final int PARITY_NONE = 0;
@@ -196,8 +197,10 @@ public class ScaleDebugActivity extends AppCompatActivity {
             return;
         }
 
-        setStatus("OPENING | " + activeDevicePath + " @ " + activeBaud + " 8-N-1");
-        addSystemLog("Opening " + activeDevicePath + " @ " + activeBaud + " 8-N-1");
+        setStatus("INITIALIZING | MODULE " + EXTENDED_UART_MODULE
+                + " | " + activeDevicePath + " @ " + activeBaud + " 8-N-1");
+        addSystemLog("SDK INIT | module " + EXTENDED_UART_MODULE
+                + " | UART " + activeDevicePath + " @ " + activeBaud + " 8-N-1");
         btnStartSerial.setEnabled(false);
         spinnerDevicePath.setEnabled(false);
         spinnerBaud.setEnabled(false);
@@ -205,18 +208,22 @@ public class ScaleDebugActivity extends AppCompatActivity {
         serialThread = new Thread(() -> {
             try {
                 serialModule = Module.getInstance();
-                boolean opened = serialModule.openSerail(
-                        activeDevicePath,
+                boolean initialized = serialModule.init(
+                        EXTENDED_UART_MODULE,
                         activeBaud,
                         DATA_BITS,
                         STOP_BITS,
                         PARITY_NONE
                 );
+                addSystemLog("SDK INIT RESULT | module " + EXTENDED_UART_MODULE
+                        + " | success=" + initialized);
 
-                if (!opened) {
-                    addSystemLog("OPEN FAILED | SDK rejected " + activeDevicePath);
+                if (!initialized) {
+                    addSystemLog("INIT FAILED | SDK rejected external UART module "
+                            + EXTENDED_UART_MODULE);
                     mainHandler.post(() -> {
-                        setStatus("ERROR | Could not open " + activeDevicePath);
+                        setStatus("ERROR | Could not initialize module "
+                                + EXTENDED_UART_MODULE + " | " + activeDevicePath);
                         serialRunning = false;
                         updateControls();
                     });
@@ -225,10 +232,12 @@ public class ScaleDebugActivity extends AppCompatActivity {
 
                 serialRunning = true;
                 mainHandler.post(() -> {
-                    setStatus("OPEN | " + activeDevicePath + " @ " + activeBaud + " 8-N-1");
+                    setStatus("OPEN | MODULE " + EXTENDED_UART_MODULE
+                            + " | " + activeDevicePath + " @ " + activeBaud + " 8-N-1");
                     updateControls();
                 });
-                addSystemLog("OPEN SUCCESS | Waiting for indicator bytes...");
+                addSystemLog("INIT SUCCESS | module " + EXTENDED_UART_MODULE
+                        + " | Waiting for indicator bytes...");
 
                 while (serialRunning && !Thread.currentThread().isInterrupted()) {
                     byte[] data = serialModule.receiveEx();
@@ -287,7 +296,10 @@ public class ScaleDebugActivity extends AppCompatActivity {
         if (module != null) {
             try {
                 module.closeSerail();
-            } catch (Throwable ignored) {
+                addSystemLog("SDK CLOSE | module " + EXTENDED_UART_MODULE);
+            } catch (Throwable error) {
+                addSystemLog("CLOSE ERROR | " + error.getClass().getSimpleName()
+                        + ": " + safeMessage(error));
             }
         }
     }
