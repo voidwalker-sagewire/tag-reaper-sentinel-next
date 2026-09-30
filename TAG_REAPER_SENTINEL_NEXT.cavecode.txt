@@ -254,12 +254,13 @@ WORK ORDER: TRS-TX-002-CPE
 Title: Cattle Processing Sessions and Animal Encounters
 Revision: 2
 Previous revision: Revision 1 superseded before ratification when OD-001 was resolved
-State: IMPLEMENTED — BUILD VERIFICATION PENDING
+State: IMPLEMENTED — BUILD VERIFIED; FIELD VERIFICATION PENDING
 Proposed: 2026-09-30
 Ratified: 2026-09-30 by Michael
 Assigned: 2026-09-30 by Michael
 Implementation branch: codex/trs-tx-002-cpe
 Implementation commit: 7e75e9faa6cfc48db93b3ebd882b49fd7c803890
+Build evidence: GitHub Actions run 36769477659 / run number 39 completed successfully
 Target base: codex/trs-tx-001-eui after TRS-TX-001-EUI verification
 
 Objective:
@@ -405,7 +406,7 @@ Current authorized state:
 - Core UART initialization and receive are proven on the physical reader.
 - TRS-TX-001-EUI is VERIFIED; FIELD ACCEPTED remains Michael's decision.
 - TRS-TX-002-RWA Revision 1 was superseded before ratification.
-- TRS-TX-002-CPE Revision 2 is implemented on codex/trs-tx-002-cpe; automated build verification and physical two-animal acceptance remain pending.
+- TRS-TX-002-CPE Revision 2 is implemented and build-verified on codex/trs-tx-002-cpe; physical two-animal acceptance remains pending.
 
 Next field action:
 - Preserve the currently working cable and adapter arrangement.
@@ -441,3 +442,4 @@ Physical wiring rule:
 - Revised TRS-TX-002-CPE to Revision 2 with protected ON_SCALE and IN_HEAD_CHUTE live encounter slots; proposal is ready for ratification.
 - Michael ratified and assigned TRS-TX-002-CPE Revision 2; implementation began on codex/trs-tx-002-cpe.
 - Implemented version 0.5.0 / versionCode 6 at commit 7e75e9faa6cfc48db93b3ebd882b49fd7c803890 with protected two-position state, SellEton parsing and stable-weight latching, durable encounter records, operator-entered treatment/procedure details, and JSON/CSV export; build and field verification remain pending.
+- GitHub Actions run 36769477659 passed testDebugUnitTest and assembleDebug on Gradle 8.5, producing the 0.5.0 debug APK; physical two-animal field verification remains pending.
