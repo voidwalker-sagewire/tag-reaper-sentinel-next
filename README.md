@@ -2,6 +2,10 @@
 
 Clean test build for the Chainway C316H four-port UHF RFID reader.
 
+## Project continuity
+
+The authoritative hardware record, field evidence, decisions, blockers, and work-order ledger are maintained in [TAG_REAPER_SENTINEL_NEXT.cavecode.txt](TAG_REAPER_SENTINEL_NEXT.cavecode.txt).
+
 ## Included in v0.3.0
 
 - Native Android Java app
