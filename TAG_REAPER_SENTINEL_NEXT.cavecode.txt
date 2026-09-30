@@ -394,8 +394,11 @@ Decision: An animal is scanned only when it enters the scale position, is weighe
 
 PROPOSED AMENDMENT: TRS-TX-002-CPE REVISION 3
 Title: Untagged Intake and Desk-Based UHF Commissioning
-State: PROPOSED — READY FOR RATIFICATION
+State: RATIFIED → ASSIGNED → IMPLEMENTATION IN PROGRESS
 Proposed: 2026-09-30
+Ratified: 2026-09-30 by Michael
+Assigned: 2026-09-30 by Michael
+Implementation branch: codex/trs-tx-002-cpe
 Previous authorized baseline: Revision 2 remains implemented and build-verified until Revision 3 is ratified and assigned
 Field-layout evidence: 25994.jpg
 
@@ -498,12 +501,12 @@ Current authorized state:
 - TRS-TX-001-EUI is VERIFIED; FIELD ACCEPTED remains Michael's decision.
 - TRS-TX-002-RWA Revision 1 was superseded before ratification.
 - TRS-TX-002-CPE Revision 2 is implemented and build-verified on codex/trs-tx-002-cpe; physical two-animal acceptance remains pending.
-- TRS-TX-002-CPE Revision 3 is proposed and ready for Michael's ratification; no Revision 3 behavior has been implemented.
+- TRS-TX-002-CPE Revision 3 was ratified and assigned by Michael; implementation is in progress on codex/trs-tx-002-cpe.
 
 Next field action:
 - Preserve the currently working cable and adapter arrangement.
 - Michael may field-accept TRS-TX-001-EUI.
-- Michael may ratify, revise, or reject TRS-TX-002-CPE Revision 3.
+- Implement, automatically verify, build, and field-test TRS-TX-002-CPE Revision 3.
 
 Physical wiring rule:
 - The installed cable and adapter arrangement is operationally proven. Preserve it as the known-good configuration.
@@ -537,3 +540,4 @@ Physical wiring rule:
 - GitHub Actions run 36769477659 passed testDebugUnitTest and assembleDebug on Gradle 8.5, producing the 0.5.0 debug APK; physical two-animal field verification remains pending.
 - Field evidence 25994.jpg established the actual two-antenna prototype: a scale-zone antenna on the left and a low-power loose-tag commissioning antenna above the right-side work desk.
 - Proposed TRS-TX-002-CPE Revision 3 for provisional untagged encounters, desk-based UHF reservation/installation, independently configurable antenna roles and power, and zone diagnostics.
+- Michael ratified and assigned TRS-TX-002-CPE Revision 3; implementation began on codex/trs-tx-002-cpe.

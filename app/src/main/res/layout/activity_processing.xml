@@ -27,11 +27,25 @@
         <Button android:id="@+id/btnProcessNew" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="New Session" android:textSize="10sp" />
         <Button android:id="@+id/btnProcessHardware" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="Connect Hardware" android:textSize="10sp" />
         <Button android:id="@+id/btnProcessRun" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="Start Pipeline" android:textSize="10sp" />
-        <Spinner android:id="@+id/spinnerProcessAntenna" android:layout_width="105dp" android:layout_height="match_parent" android:background="#e5e7eb" />
-        <Spinner android:id="@+id/spinnerProcessPower" android:layout_width="105dp" android:layout_height="match_parent" android:background="#e5e7eb" />
+        <Button android:id="@+id/btnZoneTest" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="Zone Test" android:textSize="10sp" />
         <Button android:id="@+id/btnProcessHistory" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="History" android:textSize="10sp" />
         <Button android:id="@+id/btnProcessJson" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="JSON" android:textSize="10sp" />
         <Button android:id="@+id/btnProcessCsv" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="CSV" android:textSize="10sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="#0f172a">
+        <TextView android:layout_width="90dp" android:layout_height="match_parent" android:gravity="center_vertical" android:paddingStart="6dp" android:text="SCALE ZONE" android:textColor="#93c5fd" android:textSize="10sp" android:textStyle="bold" />
+        <Spinner android:id="@+id/spinnerScaleAntenna" android:layout_width="125dp" android:layout_height="match_parent" android:background="#e5e7eb" />
+        <Spinner android:id="@+id/spinnerScalePower" android:layout_width="105dp" android:layout_height="match_parent" android:background="#e5e7eb" />
+        <TextView android:layout_width="85dp" android:layout_height="match_parent" android:gravity="center_vertical" android:paddingStart="8dp" android:text="TAG DESK" android:textColor="#fdba74" android:textSize="10sp" android:textStyle="bold" />
+        <Spinner android:id="@+id/spinnerDeskAntenna" android:layout_width="125dp" android:layout_height="match_parent" android:background="#e5e7eb" />
+        <Spinner android:id="@+id/spinnerDeskPower" android:layout_width="105dp" android:layout_height="match_parent" android:background="#e5e7eb" />
+        <TextView android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center_vertical" android:paddingStart="8dp" android:text="Independent settings • saved automatically" android:textColor="#cbd5e1" android:textSize="10sp" />
     </LinearLayout>
 
     <TextView
@@ -67,6 +81,7 @@
             <TextView android:id="@+id/txtOnScaleWeight" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:gravity="center" android:text="— lb" android:textColor="#86efac" android:textSize="42sp" android:textStyle="bold" />
             <TextView android:id="@+id/txtOnScaleEvidence" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="44dp" android:text="No RFID or scale evidence" android:textColor="#cbd5e1" android:textSize="11sp" />
             <LinearLayout android:layout_width="match_parent" android:layout_height="44dp" android:orientation="horizontal">
+                <Button android:id="@+id/btnNoUhf" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="No UHF Tag" android:textSize="9sp" />
                 <Button android:id="@+id/btnResolveTag" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="Resolve Tag" android:textSize="10sp" />
                 <Button android:id="@+id/btnClearScale" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="Reject / Clear" android:textSize="10sp" />
                 <Button android:id="@+id/btnAdvanceChute" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:backgroundTint="#166534" android:text="Advance → Chute" android:textColor="#ffffff" android:textSize="10sp" />
@@ -82,6 +97,11 @@
                 <TextView android:layout_width="match_parent" android:layout_height="32dp" android:text="IN HEAD CHUTE" android:textColor="#fdba74" android:textSize="18sp" android:textStyle="bold" />
                 <TextView android:id="@+id/txtChuteIdentity" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Chute available" android:textColor="#ffffff" android:textSize="15sp" android:textStyle="bold" />
                 <TextView android:id="@+id/txtChuteWeight" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Weight: —" android:textColor="#86efac" android:textSize="20sp" android:textStyle="bold" />
+                <LinearLayout android:layout_width="match_parent" android:layout_height="44dp" android:orientation="horizontal">
+                    <Button android:id="@+id/btnAssignTag" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1.4" android:text="Assign New UHF Tag" android:textSize="9sp" />
+                    <Button android:id="@+id/btnTagInstalled" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:backgroundTint="#166534" android:text="Tag Installed" android:textColor="#ffffff" android:textSize="9sp" />
+                    <Button android:id="@+id/btnCancelTag" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="Cancel Tag" android:textSize="9sp" />
+                </LinearLayout>
                 <TextView android:id="@+id/txtChecklist" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="92dp" android:layout_marginTop="4dp" android:background="#431407" android:padding="6dp" android:text="No animal in head chute" android:textColor="#fef3c7" android:textSize="12sp" />
                 <Button android:id="@+id/btnRecordItem" android:layout_width="match_parent" android:layout_height="42dp" android:text="Record Treatment / Procedure" android:textSize="10sp" />
                 <EditText android:id="@+id/editDestination" android:layout_width="match_parent" android:layout_height="40dp" android:hint="Destination / disposition" android:textColor="#ffffff" android:textColorHint="#d1d5db" android:singleLine="true" />
