@@ -57,6 +57,13 @@ Continuity branch:
 - Based on: scale-debug-v1-mobile
 - Purpose: introduce this master memory without modifying application behavior.
 
+Active implementation branch:
+- Branch: codex/trs-tx-001-eui
+- Based on: cavecode/sentinel-next-continuity
+- App version: 0.4.1
+- Version code: 5
+- Work order: TRS-TX-001-EUI Revision 1
+
 ⊞ BLOCK 4 — FIELD HARDWARE
 
 Livestock equipment:
@@ -184,10 +191,13 @@ Need: capture at least one real raw frame in ASCII and hex before finalizing a p
 WORK ORDER: TRS-TX-001-EUI
 Title: Initialize and prove the extended UART receive path
 Revision: 1
-State: PROPOSED
+State: IMPLEMENTED — build verified; device verification pending
 Proposed: 2026-09-30
-Authority required: Michael ratification and assignment
+Ratified: 2026-09-30 by Michael
+Assigned: 2026-09-30 by Michael
+Implemented: 2026-09-30
 Target base: scale-debug-v1-mobile at d1741289ee7d915fd3c10655434ec1d9b99900ee
+Implementation branch: codex/trs-tx-001-eui
 
 Objective:
 - Modify the scale-debug connection path to use the vendor-documented external UART initialization call for module 10.
@@ -219,6 +229,14 @@ Explicit exclusions:
 Rollback:
 - Retain scale-debug-v1-mobile commit d1741289ee7d915fd3c10655434ec1d9b99900ee as the pre-work-order baseline.
 
+Implementation evidence:
+- f6893c9fbdbd9bbdbf2b76562d70c898eb06bb43 — ScaleDebugActivity now calls Module.init(10, selectedBaud, 8, 1, 0), logs the boolean result, retains receiveEx(), and logs SDK close outcomes.
+- 720e8e3f40cc22903b26ecfefe685387d0cfd341 — test package identified as version 0.4.1 / versionCode 5.
+- 7f3100fd52062b8e3117fd847e462935acdd68a4 — CI no longer requests the retired Android SDK package named tools.
+- GitHub Actions run 36759338322: SUCCESS.
+- Acceptance item 1, Android project builds successfully: SATISFIED.
+- Acceptance items requiring the physical C316H and scale: PENDING FIELD VERIFICATION.
+
 ⊞ BLOCK 11 — PLANNED FOLLOW-ON WORK
 
 These items are CAPTURED only and require separate work orders:
@@ -233,12 +251,17 @@ These items are CAPTURED only and require separate work orders:
 ⊞ BLOCK 12 — NEXT AUTHORIZED ACTION
 
 Current authorized state:
-- Documentation/continuity update only.
-- No application-code modification is authorized by this ledger alone.
+- TRS-TX-001-EUI Revision 1 was ratified and assigned by Michael.
+- Implementation and build verification are complete on codex/trs-tx-001-eui.
+- The work order remains below VERIFIED until the physical reader test supplies runtime evidence.
 
-Decision gate for Michael:
-- RATIFY TRS-TX-001-EUI as written, ratify with edits, or reject it.
-- On ratification, explicitly assign implementation before code changes begin.
+Next field action:
+- Install the version 0.4.1 debug APK from successful Actions run 36759338322.
+- Open Scale Debug with /dev/ttyHS2 and 9600 baud selected.
+- Start serial and confirm the log reports SDK INIT RESULT with success=true.
+- Observe whether Bytes and Chunks advance above zero.
+- Copy the complete log after the test and preserve it as field evidence.
+- If initialization succeeds but counters remain zero, continue B-001 as a physical transmit/wiring investigation.
 
 Recommended parallel field check after ratification:
 - Verify indicator TX-to-reader RX and common ground with an authoritative pinout, breakout tester, meter, or known-good RS-232 receiver.
@@ -251,3 +274,8 @@ Recommended parallel field check after ratification:
 - Recorded confirmed scale settings and calibration outcome.
 - Recorded the zero-byte UART symptom.
 - Recorded TRS-TX-001-EUI as PROPOSED; no application behavior changed.
+- Michael ratified and assigned TRS-TX-001-EUI Revision 1.
+- Implemented the vendor-documented module 10 initialization path on codex/trs-tx-001-eui.
+- Raised the field-test build identity to 0.4.1 / versionCode 5.
+- Repaired the obsolete Android SDK package request in CI.
+- GitHub Actions run 36759338322 completed successfully; device verification remains pending.
