@@ -170,8 +170,9 @@ Decision intent: Location/weather enrichment and HerdMate synchronization are la
 ⊞ BLOCK 9 — UNRESOLVED QUESTIONS & BLOCKERS
 
 B-001 — No received UART bytes
-State: OPEN
+State: RESOLVED — field receive proven 2026-09-30
 Evidence: /dev/ttyHS2 opens successfully, but all counters remain zero.
+Resolution evidence: Version 0.4.1 initialized SDK module 10 successfully and received continuous indicator data. Photograph 25988.jpg shows 2,286 bytes, 127 chunks, and 127 complete lines.
 Candidate causes:
 1. Extended UART requires Module.init(10, ...) rather than direct openSerail(...).
 2. TX/RX/GND wiring or adapter crossover is incorrect.
@@ -181,17 +182,18 @@ Candidate causes:
 B-002 — Reader-side DB9 pinout
 State: OPEN
 Need: authoritative pinout or meter/loopback verification.
+Operational note: the physical cable/adapter arrangement installed during the 25988.jpg field test is proven functional and must not be changed absent a new diagnostic need.
 
 B-003 — Exact indicator frame sample
-State: OPEN
-Need: capture at least one real raw frame in ASCII and hex before finalizing a parser.
+State: RESOLVED — field frame captured 2026-09-30
+Evidence: ASCII frame ST,GS,+ 125lb with CR/LF termination was captured alongside matching raw hexadecimal bytes.
 
 ⊞ BLOCK 10 — WORK ORDER REGISTER
 
 WORK ORDER: TRS-TX-001-EUI
 Title: Initialize and prove the extended UART receive path
 Revision: 1
-State: IMPLEMENTED — build verified; device verification pending
+State: IMPLEMENTED — build and core serial receive field-verified; restart/RFID checks pending
 Proposed: 2026-09-30
 Ratified: 2026-09-30 by Michael
 Assigned: 2026-09-30 by Michael
@@ -235,7 +237,11 @@ Implementation evidence:
 - 7f3100fd52062b8e3117fd847e462935acdd68a4 — CI no longer requests the retired Android SDK package named tools.
 - GitHub Actions run 36759338322: SUCCESS.
 - Acceptance item 1, Android project builds successfully: SATISFIED.
-- Acceptance items requiring the physical C316H and scale: PENDING FIELD VERIFICATION.
+- Acceptance item 2, Scale Debug opens the extended UART without crashing: SATISFIED IN FIELD.
+- Acceptance item 3, Bytes and Chunks advance above zero: SATISFIED IN FIELD — 2,286 bytes / 127 chunks shown.
+- Acceptance item 4, raw frame preserved in printable ASCII and hex: SATISFIED IN FIELD — ST,GS,+ 125lb captured.
+- Acceptance item 5, stop/restart works without rebooting: PENDING FIELD VERIFICATION.
+- Acceptance item 6, existing RFID session operation remains intact: PENDING REGRESSION CHECK.
 
 ⊞ BLOCK 11 — PLANNED FOLLOW-ON WORK
 
@@ -253,15 +259,14 @@ These items are CAPTURED only and require separate work orders:
 Current authorized state:
 - TRS-TX-001-EUI Revision 1 was ratified and assigned by Michael.
 - Implementation and build verification are complete on codex/trs-tx-001-eui.
-- The work order remains below VERIFIED until the physical reader test supplies runtime evidence.
+- Core UART initialization and receive are proven on the physical reader.
+- The work order remains below VERIFIED until stop/restart and RFID regression checks pass.
 
 Next field action:
-- Install the version 0.4.1 debug APK from successful Actions run 36759338322.
-- Open Scale Debug with /dev/ttyHS2 and 9600 baud selected.
-- Start serial and confirm the log reports SDK INIT RESULT with success=true.
-- Observe whether Bytes and Chunks advance above zero.
-- Copy the complete log after the test and preserve it as field evidence.
-- If initialization succeeds but counters remain zero, continue B-001 as a physical transmit/wiring investigation.
+- Preserve the currently working cable and adapter arrangement.
+- Tap STOP SERIAL, then START SERIAL, without rebooting the reader; confirm new frames resume.
+- Return to the RFID screen and complete a short known-tag inventory scan.
+- If both checks pass, advance TRS-TX-001-EUI from IMPLEMENTED to VERIFIED.
 
 Recommended parallel field check after ratification:
 - Verify indicator TX-to-reader RX and common ground with an authoritative pinout, breakout tester, meter, or known-good RS-232 receiver.
@@ -279,3 +284,6 @@ Recommended parallel field check after ratification:
 - Raised the field-test build identity to 0.4.1 / versionCode 5.
 - Repaired the obsolete Android SDK package request in CI.
 - GitHub Actions run 36759338322 completed successfully; device verification remains pending.
+- Field evidence 25988.jpg proved module 10 initialization and continuous receive on /dev/ttyHS2 at 9600 8-N-1.
+- Captured 2,286 bytes, 127 chunks, 127 complete lines, and the frame ST,GS,+ 125lb with raw hex evidence.
+- Resolved B-001 and B-003; retained B-002 as a documentation gap that no longer blocks operation.
