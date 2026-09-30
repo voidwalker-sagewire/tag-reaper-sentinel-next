@@ -254,9 +254,11 @@ WORK ORDER: TRS-TX-002-CPE
 Title: Cattle Processing Sessions and Animal Encounters
 Revision: 2
 Previous revision: Revision 1 superseded before ratification when OD-001 was resolved
-State: PROPOSED — READY FOR RATIFICATION
+State: RATIFIED → ASSIGNED → IMPLEMENTATION IN PROGRESS
 Proposed: 2026-09-30
-Authority required: Michael ratification and assignment
+Ratified: 2026-09-30 by Michael
+Assigned: 2026-09-30 by Michael
+Implementation branch: codex/trs-tx-002-cpe
 Target base: codex/trs-tx-001-eui after TRS-TX-001-EUI verification
 
 Objective:
@@ -402,12 +404,12 @@ Current authorized state:
 - Core UART initialization and receive are proven on the physical reader.
 - TRS-TX-001-EUI is VERIFIED; FIELD ACCEPTED remains Michael's decision.
 - TRS-TX-002-RWA Revision 1 was superseded before ratification.
-- TRS-TX-002-CPE Revision 2 is PROPOSED and READY FOR RATIFICATION.
+- TRS-TX-002-CPE Revision 2 was ratified and assigned by Michael; implementation is in progress on codex/trs-tx-002-cpe.
 
 Next field action:
 - Preserve the currently working cable and adapter arrangement.
 - Michael may field-accept TRS-TX-001-EUI.
-- Michael may ratify TRS-TX-002-CPE Revision 2 as written, ratify with revisions, or reject it.
+- Complete implementation, automated verification, Android build, and two-animal field acceptance testing for TRS-TX-002-CPE Revision 2.
 
 Physical wiring rule:
 - The installed cable and adapter arrangement is operationally proven. Preserve it as the known-good configuration.
@@ -436,3 +438,4 @@ Physical wiring rule:
 - Recorded OD-001 to determine whether the physical workflow requires simultaneous weigh and treatment stage slots.
 - Michael resolved OD-001: scan and weigh occur at the scale, then the animal advances to the head chute while the next animal may enter the scale position.
 - Revised TRS-TX-002-CPE to Revision 2 with protected ON_SCALE and IN_HEAD_CHUTE live encounter slots; proposal is ready for ratification.
+- Michael ratified and assigned TRS-TX-002-CPE Revision 2; implementation began on codex/trs-tx-002-cpe.

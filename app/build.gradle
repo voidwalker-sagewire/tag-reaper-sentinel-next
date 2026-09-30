@@ -8,8 +8,8 @@ android {
         applicationId "com.herdmate.tagreapersentinel"
         minSdk 24
         targetSdk 34
-        versionCode 5
-        versionName "0.4.1"
+        versionCode 6
+        versionName "0.5.0"
     }
 
     buildTypes {
@@ -33,4 +33,5 @@ repositories {
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation(name: 'DeviceAPI_ver20251103_release', ext: 'aar')
+    testImplementation 'junit:junit:4.13.2'
 }

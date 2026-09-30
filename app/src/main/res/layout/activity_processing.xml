@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#080b10"
+    android:padding="8dp">
+
+    <TextView
+        android:id="@+id/txtProcessingHeader"
+        android:layout_width="match_parent"
+        android:layout_height="34dp"
+        android:gravity="center_vertical"
+        android:background="#111827"
+        android:paddingStart="10dp"
+        android:text="CATTLE PROCESSING | No active session"
+        android:textColor="#38bdf8"
+        android:textSize="15sp"
+        android:textStyle="bold" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:layout_marginTop="4dp"
+        android:orientation="horizontal">
+
+        <Button android:id="@+id/btnProcessNew" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="New Session" android:textSize="10sp" />
+        <Button android:id="@+id/btnProcessHardware" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="Connect Hardware" android:textSize="10sp" />
+        <Button android:id="@+id/btnProcessRun" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="Start Pipeline" android:textSize="10sp" />
+        <Spinner android:id="@+id/spinnerProcessAntenna" android:layout_width="105dp" android:layout_height="match_parent" android:background="#e5e7eb" />
+        <Spinner android:id="@+id/spinnerProcessPower" android:layout_width="105dp" android:layout_height="match_parent" android:background="#e5e7eb" />
+        <Button android:id="@+id/btnProcessHistory" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="History" android:textSize="10sp" />
+        <Button android:id="@+id/btnProcessJson" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="JSON" android:textSize="10sp" />
+        <Button android:id="@+id/btnProcessCsv" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="CSV" android:textSize="10sp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/txtProcessHardware"
+        android:layout_width="match_parent"
+        android:layout_height="30dp"
+        android:gravity="center_vertical"
+        android:paddingStart="8dp"
+        android:background="#0f172a"
+        android:text="RFID: disconnected | SCALE: disconnected | 9600 8-N-1"
+        android:textColor="#fbbf24"
+        android:textSize="11sp"
+        android:textStyle="bold" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="4dp"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="4dp"
+            android:orientation="vertical"
+            android:background="#172554"
+            android:padding="8dp">
+
+            <TextView android:layout_width="match_parent" android:layout_height="32dp" android:text="ON SCALE" android:textColor="#93c5fd" android:textSize="18sp" android:textStyle="bold" />
+            <TextView android:id="@+id/txtOnScaleIdentity" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Waiting for one EPC" android:textColor="#ffffff" android:textSize="15sp" android:textStyle="bold" />
+            <TextView android:id="@+id/txtOnScaleWeight" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:gravity="center" android:text="— lb" android:textColor="#86efac" android:textSize="42sp" android:textStyle="bold" />
+            <TextView android:id="@+id/txtOnScaleEvidence" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="44dp" android:text="No RFID or scale evidence" android:textColor="#cbd5e1" android:textSize="11sp" />
+            <LinearLayout android:layout_width="match_parent" android:layout_height="44dp" android:orientation="horizontal">
+                <Button android:id="@+id/btnResolveTag" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="Resolve Tag" android:textSize="10sp" />
+                <Button android:id="@+id/btnClearScale" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="Reject / Clear" android:textSize="10sp" />
+                <Button android:id="@+id/btnAdvanceChute" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:backgroundTint="#166534" android:text="Advance → Chute" android:textColor="#ffffff" android:textSize="10sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <ScrollView
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="#3f1d0b">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="8dp">
+                <TextView android:layout_width="match_parent" android:layout_height="32dp" android:text="IN HEAD CHUTE" android:textColor="#fdba74" android:textSize="18sp" android:textStyle="bold" />
+                <TextView android:id="@+id/txtChuteIdentity" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Chute available" android:textColor="#ffffff" android:textSize="15sp" android:textStyle="bold" />
+                <TextView android:id="@+id/txtChuteWeight" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Weight: —" android:textColor="#86efac" android:textSize="20sp" android:textStyle="bold" />
+                <TextView android:id="@+id/txtChecklist" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="92dp" android:layout_marginTop="4dp" android:background="#431407" android:padding="6dp" android:text="No animal in head chute" android:textColor="#fef3c7" android:textSize="12sp" />
+                <Button android:id="@+id/btnRecordItem" android:layout_width="match_parent" android:layout_height="42dp" android:text="Record Treatment / Procedure" android:textSize="10sp" />
+                <EditText android:id="@+id/editDestination" android:layout_width="match_parent" android:layout_height="40dp" android:hint="Destination / disposition" android:textColor="#ffffff" android:textColorHint="#d1d5db" android:singleLine="true" />
+                <EditText android:id="@+id/editEncounterNotes" android:layout_width="match_parent" android:layout_height="40dp" android:hint="Encounter notes" android:textColor="#ffffff" android:textColorHint="#d1d5db" android:singleLine="true" />
+                <LinearLayout android:layout_width="match_parent" android:layout_height="44dp" android:orientation="horizontal">
+                    <Button android:id="@+id/btnHoldEncounter" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:text="Hold" android:textSize="10sp" />
+                    <Button android:id="@+id/btnCompleteEncounter" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:backgroundTint="#166534" android:text="Complete + Release" android:textColor="#ffffff" android:textSize="10sp" />
+                </LinearLayout>
+            </LinearLayout>
+        </ScrollView>
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/txtProcessingStatus"
+        android:layout_width="match_parent"
+        android:layout_height="30dp"
+        android:gravity="center_vertical"
+        android:paddingStart="8dp"
+        android:background="#111827"
+        android:text="Create or restore a processing session"
+        android:textColor="#e5e7eb"
+        android:textSize="11sp" />
+</LinearLayout>
