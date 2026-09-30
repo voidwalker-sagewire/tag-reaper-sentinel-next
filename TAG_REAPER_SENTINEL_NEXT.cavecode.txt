@@ -1,0 +1,253 @@
+TAG REAPER SENTINEL NEXT — MASTER STATE & PROJECT MEMORY
+File: TAG_REAPER_SENTINEL_NEXT.cavecode.txt
+Format: CaveCode v1.0 project master map
+Authority: Michael Miller (“Michael”)
+Repository: voidwalker-sagewire/tag-reaper-sentinel-next
+Ledger state: CURRENT
+Last reconciled: 2026-09-30 UTC
+
+⊞ BLOCK 1 — PROJECT IDENTITY
+
+Project name: Tag Reaper Sentinel Next
+Working product name: Reaper Sentinel
+Purpose: Run livestock RFID sessions on the fixed Android reader, capture a trustworthy live weight from the attached livestock scale, and eventually bind the RFID observation and locked weight into one durable record.
+
+Repository rule:
+- Continue in this repository.
+- Do not create a replacement repository unless Michael expressly ratifies that change.
+- Preserve a known-good operating branch while experimental hardware work is isolated and field-tested.
+
+Immediate phase:
+- Prove the RS-232 receive path on the C316H-compatible reader.
+- Preserve raw evidence before adding weight parsing or livestock record joins.
+
+⊞ BLOCK 2 — AUTHORITY & GOVERNANCE
+
+Human authority:
+- Michael has final authority over product decisions, ratification, assignment, field acceptance, and release.
+- AI-generated diagnoses and work orders remain PROPOSED until Michael ratifies them.
+- No proposal becomes an implementation merely because it appears in this ledger.
+
+State ladder:
+CAPTURED → PROPOSED → RATIFIED → ASSIGNED → IMPLEMENTED → VERIFIED → FIELD ACCEPTED → SUPERSEDED
+
+CaveCode role:
+- This file is the repository’s compact current-state memory.
+- It records settled facts, unresolved questions, decisions, work orders, evidence, branch/build state, and the next authorized action.
+- It must distinguish field-proven facts from inferences.
+
+⊞ BLOCK 3 — REPOSITORY BASELINE
+
+Stable baseline:
+- Branch: main
+- Commit: 471688466c99440da106ca5ede05aaff4c04906d
+- App version: 0.3.0
+- Current known purpose: C316H RFID session and reader-power operation.
+
+Scale-debug baseline:
+- Branch: scale-debug-v1-mobile
+- Commit: d1741289ee7d915fd3c10655434ec1d9b99900ee
+- Commit title: Add Scale Debug Log v1
+- App version: 0.4.0
+- Current feature boundary: raw serial capture and logging only.
+- Not yet present: weight parsing, locked-weight selection, RFID/weight association, or downstream synchronization.
+
+Continuity branch:
+- Branch: cavecode/sentinel-next-continuity
+- Based on: scale-debug-v1-mobile
+- Purpose: introduce this master memory without modifying application behavior.
+
+⊞ BLOCK 4 — FIELD HARDWARE
+
+Livestock equipment:
+- Chute/platform: Lynn Enterprises scale/chute assembly.
+- Installation: permanently mounted above the load bars and permanently mounted to the floor.
+- Load bars: SellEton SL-WB-48-10K weigh beams.
+- Indicator: SellEton SL-7516-C-2P.
+- Indicator interfaces observed: dual load-cell connections and DB9 serial port.
+
+Android fixed reader:
+- Device family: C316H-compatible four-antenna fixed reader.
+- App-reported model: URA4.
+- CPU: sm6115.
+- Platform: Qualcomm.
+- RFID hardware family reported by vendor materials: Impinj E710/R2000.
+- Extended UART device resolved by vendor SDK: /dev/ttyHS2.
+
+Physical serial path:
+- Indicator DB9 connected to the reader’s external serial connection.
+- Yellow adapter label observed: MINI GENDER CHANGER.
+- Orange adapter believed to be a null-modem/mini adapter, but its internal wiring is not proven.
+- Straight-through versus crossover wiring is UNRESOLVED.
+
+⊞ BLOCK 5 — CONFIRMED SCALE CONFIGURATION
+
+Calibration:
+- C05 = 1 was used successfully for zero calibration.
+- Result: the permanently installed chute/platform weight is absorbed into the calibrated zero.
+- Field result: indicator returned to 0 with the empty installed chute.
+
+Livestock behavior:
+- C11 = 5 — Auto Average Hold.
+- C18 = 4 — PC continuous serial output mode.
+- C19 = 3 — 9600 baud.
+- C28 = 3 — medium dynamic filter.
+
+Serial format:
+- 9600 baud, 8 data bits, no parity, 1 stop bit.
+- Indicator documentation describes ASCII records terminated by CR/LF.
+- Documented content includes stable/unstable status, gross/net status, sign/value, and lb/kg units.
+- Indicator DB9 documentation: pin 2 TX, pin 3 RX, pin 5 GND.
+
+⊞ BLOCK 6 — VENDOR PACKAGE & SDK EVIDENCE
+
+Vendor artifacts obtained:
+- API_Ver20251103.rar
+- doc.rar
+- C316H User Manual.pdf
+- UHF-A4_v1.8.1.apk_Decompiler.com.zip
+- app/libs/DeviceAPI_ver20251103_release.aar
+
+Confirmed from vendor code/documentation:
+- URA4 with SM6115 maps the extended/external UART to /dev/ttyHS2.
+- SDK class Module exposes init(int module, int baud, int databits, int stopbits, int check).
+- SDK class Module exposes receiveEx() and closeSerail().
+- Module number 10 is documented as the A8 external/extended UART.
+- Module.init(10, 9600, 8, 1, 0) is the documented initialization path for that UART.
+
+Evidence boundary:
+- The vendor materials inspected do not establish the reader-side DB9 pin-number mapping.
+- No cable/adapter wiring arrangement is accepted as correct until electrically verified or proven by received bytes.
+
+⊞ BLOCK 7 — CURRENT APP & FIELD TEST EVIDENCE
+
+Current Scale Debug behavior:
+- UART path: /dev/ttyHS2.
+- Serial parameters: 9600 8-N-1.
+- The screen reports OPEN SUCCESS.
+- It then reports Waiting for indicator bytes.
+- Field counters remain Bytes: 0, Chunks: 0, Complete lines: 0.
+- Repeating the test with the available mini adapters produced the same zero-byte result.
+
+Implementation observed on scale-debug-v1-mobile:
+- ScaleDebugActivity uses Module.getInstance().openSerail(activePath, activeBaud, 8, 1, 0).
+- Receive loop uses receiveEx().
+
+Current diagnosis:
+- PROBABLE, NOT FIELD PROVEN: openSerail() opens the device node but may not perform the power/mux/module initialization performed by init(10, ...).
+- A successful open message proves the file opened; it does not prove electrical receive data is reaching the application.
+- Cable polarity/pinout remains an independent possible blocker.
+
+⊞ BLOCK 8 — SETTLED DECISIONS
+
+DECISION D-001 — Repository continuity
+State: RATIFIED by user direction
+Decision: Improve the existing Tag Reaper Sentinel Next repository; do not start a new application or repository.
+
+DECISION D-002 — Evidence-first serial work
+State: RATIFIED by existing branch design and current direction
+Decision: Capture and display raw ASCII and hex serial data before building the production weight parser.
+
+DECISION D-003 — Livestock operating intent
+State: CAPTURED
+Decision intent: The indicator should lock/hold a moving animal’s usable weight using livestock/auto-average behavior.
+
+DECISION D-004 — Planned record association
+State: CAPTURED
+Decision intent: After serial proof, Reaper Sentinel should associate a locked/stable scale weight with the RFID observation and preserve a durable session record.
+
+DECISION D-005 — Later integrations
+State: CAPTURED
+Decision intent: Location/weather enrichment and HerdMate synchronization are later phases, not part of the current UART proof.
+
+⊞ BLOCK 9 — UNRESOLVED QUESTIONS & BLOCKERS
+
+B-001 — No received UART bytes
+State: OPEN
+Evidence: /dev/ttyHS2 opens successfully, but all counters remain zero.
+Candidate causes:
+1. Extended UART requires Module.init(10, ...) rather than direct openSerail(...).
+2. TX/RX/GND wiring or adapter crossover is incorrect.
+3. Indicator is not actually transmitting despite configured C18/C19 values.
+4. Reader port electrical standard or pin mapping differs from the assumed RS-232 connection.
+
+B-002 — Reader-side DB9 pinout
+State: OPEN
+Need: authoritative pinout or meter/loopback verification.
+
+B-003 — Exact indicator frame sample
+State: OPEN
+Need: capture at least one real raw frame in ASCII and hex before finalizing a parser.
+
+⊞ BLOCK 10 — WORK ORDER REGISTER
+
+WORK ORDER: TRS-TX-001-EUI
+Title: Initialize and prove the extended UART receive path
+Revision: 1
+State: PROPOSED
+Proposed: 2026-09-30
+Authority required: Michael ratification and assignment
+Target base: scale-debug-v1-mobile at d1741289ee7d915fd3c10655434ec1d9b99900ee
+
+Objective:
+- Modify the scale-debug connection path to use the vendor-documented external UART initialization call for module 10.
+- Preserve raw capture diagnostics so the field test proves or disproves the software-init hypothesis.
+
+Proposed implementation scope:
+- Initialize with Module.init(10, selectedBaud, 8, 1, 0).
+- Continue receiving through receiveEx().
+- Close the SDK serial/module cleanly when stopped or when the activity exits.
+- Log the initialization return/result and any exception without hiding the raw byte counters.
+- Keep /dev/ttyHS2 and current settings visible as diagnostics.
+- Preserve existing RFID behavior.
+
+Acceptance evidence:
+1. Android project builds successfully.
+2. Scale Debug opens the extended UART without crashing.
+3. With the indicator connected and transmitting, Bytes and Chunks advance above zero.
+4. At least one raw frame is preserved in printable ASCII and hex.
+5. Stop/restart of the listener works without rebooting the reader.
+6. Existing RFID session operation remains intact.
+
+Explicit exclusions:
+- No production weight parser.
+- No stable/locked-weight algorithm in the Android app.
+- No RFID-to-weight join.
+- No HerdMate, SageWire, location, or weather synchronization.
+- No assertion that a specific adapter is correct without electrical or byte-level proof.
+
+Rollback:
+- Retain scale-debug-v1-mobile commit d1741289ee7d915fd3c10655434ec1d9b99900ee as the pre-work-order baseline.
+
+⊞ BLOCK 11 — PLANNED FOLLOW-ON WORK
+
+These items are CAPTURED only and require separate work orders:
+- Parse documented SellEton ASCII frames.
+- Distinguish stable/unstable and gross/net frames.
+- Select and display the livestock locked/held weight.
+- Associate the accepted weight with EPC, antenna, timestamp, and session.
+- Store a durable offline record.
+- Add export/synchronization and optional context enrichment.
+- Design a field-friendly recovery path for disconnects, bad frames, and reader restarts.
+
+⊞ BLOCK 12 — NEXT AUTHORIZED ACTION
+
+Current authorized state:
+- Documentation/continuity update only.
+- No application-code modification is authorized by this ledger alone.
+
+Decision gate for Michael:
+- RATIFY TRS-TX-001-EUI as written, ratify with edits, or reject it.
+- On ratification, explicitly assign implementation before code changes begin.
+
+Recommended parallel field check after ratification:
+- Verify indicator TX-to-reader RX and common ground with an authoritative pinout, breakout tester, meter, or known-good RS-232 receiver.
+- Do not assume the gender changer or null-modem adapter performs the required crossover.
+
+⊞ BLOCK 13 — CHANGE LOG
+
+2026-09-30
+- Created the CaveCode master state from repository inspection, vendor SDK evidence, indicator documentation, photographs, and field test observations.
+- Recorded confirmed scale settings and calibration outcome.
+- Recorded the zero-byte UART symptom.
+- Recorded TRS-TX-001-EUI as PROPOSED; no application behavior changed.
