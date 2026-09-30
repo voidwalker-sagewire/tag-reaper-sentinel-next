@@ -392,6 +392,97 @@ DECISION OD-001 — Physical station concurrency
 State: RESOLVED by Michael on 2026-09-30
 Decision: An animal is scanned only when it enters the scale position, is weighed there, then moves forward into the head chute for veterinary services. The next animal may then move onto the scale. Sentinel therefore requires separate ON_SCALE and IN_HEAD_CHUTE live encounter slots.
 
+PROPOSED AMENDMENT: TRS-TX-002-CPE REVISION 3
+Title: Untagged Intake and Desk-Based UHF Commissioning
+State: PROPOSED — READY FOR RATIFICATION
+Proposed: 2026-09-30
+Previous authorized baseline: Revision 2 remains implemented and build-verified until Revision 3 is ratified and assigned
+Field-layout evidence: 25994.jpg
+
+Problem statement:
+- Incoming cattle may have a conventional visual ear tag but no UHF tag, or may have no tag at all.
+- Revision 2 requires a UHF EPC before it creates the ON_SCALE encounter, so it cannot safely retain the weight and downstream services for an untagged animal.
+- The physical workstation uses one antenna near the scale and a second low-power antenna over the tag desk. The loose UHF tag is scanned at the desk before the operator installs it in the animal occupying IN_HEAD_CHUTE.
+
+Revised physical roles:
+- SCALE_ZONE antenna: identifies an animal already carrying UHF while it occupies ON_SCALE.
+- TAG_DESK antenna: reads one loose, previously unassigned UHF tag for the animal protected in IN_HEAD_CHUTE.
+- The commissioning antenna is not located at the head chute; it is located over the right-side work desk shown in field evidence 25994.jpg.
+- Antenna ports are role assignments, not hard-coded physical assumptions.
+
+Configurable antenna requirements:
+- The operator independently selects ANT 1, ANT 2, ANT 3, or ANT 4 for SCALE_ZONE and TAG_DESK.
+- The same port cannot be assigned to both roles at the same time.
+- Each role has an independent adjustable power from 5 through 30 dBm using the device-supported range.
+- Role, port, and power settings persist across restarts and may be changed without creating a new processing session.
+- The current experimental values of approximately 25 dBm at the scale and 5–6 dBm at the desk are field starting points only; they are not defaults, requirements, or hard-coded values.
+- Unassigned antenna ports remain available for future roles.
+
+Untagged intake workflow:
+1. An animal with no readable UHF EPC enters ON_SCALE.
+2. The operator taps NO UHF TAG and may enter an existing visual ear-tag number; the visual identifier is optional because some cattle have no tag.
+3. Sentinel creates a protected provisional AnimalEncounter with a session sequence identity such as UNTAGGED-001.
+4. The SellEton stable-weight latch attaches the WeightEvent to that provisional encounter exactly as it would for a UHF-identified animal.
+5. The operator advances the same encounter into IN_HEAD_CHUTE without losing its temporary identity or weight.
+6. The next animal may occupy ON_SCALE while the prior animal remains protected in IN_HEAD_CHUTE.
+
+Desk commissioning workflow:
+1. The operator taps ASSIGN NEW UHF TAG on the IN_HEAD_CHUTE encounter.
+2. Sentinel arms TAG_DESK for that specific encounter; TAG_DESK reads never create or replace the ON_SCALE encounter.
+3. The operator picks up one loose tag from the desk inventory and presents it to the desk antenna.
+4. Exactly one previously unassigned EPC permits a confirmation prompt showing the EPC, provisional/visual identity, and locked weight.
+5. Confirmation reserves the EPC to that encounter before physical installation so it cannot be assigned to another animal.
+6. The operator installs the reserved tag and records TAG INSTALLED. A cancel/replace action is available for a dropped, damaged, or incorrectly selected tag and must retain audit evidence.
+7. The reserved EPC becomes the encounter's UHF identity without creating a new encounter or moving its weight, treatments, procedures, notes, or disposition.
+
+RFID routing and safety rules:
+- RFID evidence is routed by the antenna reported in UHFTAGInfo.getAnt(), not by the most recently received EPC.
+- SCALE_ZONE EPCs may stage or confirm only ON_SCALE identity.
+- TAG_DESK EPCs are ignored for commissioning unless ASSIGN NEW UHF TAG is explicitly armed for IN_HEAD_CHUTE.
+- Zero TAG_DESK EPCs leave assignment pending.
+- Multiple distinct TAG_DESK EPCs block assignment and display MULTIPLE DESK TAGS; strongest RSSI alone never chooses a tag.
+- An EPC already assigned or reserved to another encounter is rejected with a visible conflict.
+- Reserving, installing, canceling, and replacing a tag are timestamped audit events.
+- Simultaneous Animal A commissioning at TAG_DESK and Animal B identification/weighing at SCALE_ZONE cannot exchange identities, weights, services, or dispositions.
+
+Antenna Zone Test:
+- Provide a no-record diagnostic mode for SCALE_ZONE and TAG_DESK.
+- Display role, selected port, power, EPC, read count, and RSSI separately for each zone.
+- Provide independent START/STOP or arm controls and CLEAR counters.
+- Show operator-facing states including ZONE QUIET, ONE TAG DETECTED, and MULTIPLE TAGS DETECTED.
+- Diagnostic reads never create encounters or assign tags.
+
+Record additions:
+- provisionalIdentity and provisionalSequence
+- visualTag when supplied
+- uhfIdentityState: NONE, RESERVED, INSTALLED, REPLACED, or CANCELED
+- reservedEpc, reservedAt, reservedBy, installedAt, installedBy
+- antennaRole, antennaPort, antennaPower, raw RFID reads, read count, and RSSI evidence
+- replacement/cancellation reason and prior EPC audit trail
+
+Revision 3 acceptance evidence:
+1. Revision 2 RFID, scale, two-slot isolation, persistence, treatment, and export tests continue to pass.
+2. An animal with no EPC can receive a provisional encounter and stable weight without a silent identity assignment.
+3. An existing visual tag can be recorded without pretending it is a UHF identity.
+4. A completely untagged animal can proceed from ON_SCALE to IN_HEAD_CHUTE without losing its encounter or weight.
+5. A single unassigned EPC read at TAG_DESK can be explicitly confirmed, reserved, installed, and bound to the protected head-chute encounter.
+6. Zero, multiple, duplicate, and already-assigned desk EPC conditions cannot silently bind a tag.
+7. A desk EPC never creates or replaces the next animal in ON_SCALE.
+8. SCALE_ZONE and TAG_DESK ports and power are independently adjustable across the supported range and persist after restart.
+9. Selecting the same antenna port for both roles is blocked.
+10. The Antenna Zone Test proves the working physical power and placement without creating animal records.
+11. A two-animal test preserves Animal A in IN_HEAD_CHUTE during desk commissioning while Animal B is identified and weighed in ON_SCALE.
+12. JSON and CSV exports include provisional identity, visual tag, final/reserved EPC, tag lifecycle audit events, antenna role/port/power, and raw evidence.
+13. Android automated tests and APK build pass before installation.
+14. Physical acceptance includes a mixed tagged/untagged cattle simulation before live processing.
+
+Revision 3 exclusions:
+- No hard-coded antenna port or power setting.
+- No strongest-RSSI automatic tag selection.
+- No automatic marking of a reserved tag as physically installed.
+- No requirement for additional shielding or permanent antenna mounting unless field-zone testing proves it necessary.
+- No HerdMate write-back or cloud synchronization in this revision.
+
 ⊞ BLOCK 11 — PLANNED FOLLOW-ON WORK
 
 These items are CAPTURED only and require separate work orders:
@@ -407,11 +498,12 @@ Current authorized state:
 - TRS-TX-001-EUI is VERIFIED; FIELD ACCEPTED remains Michael's decision.
 - TRS-TX-002-RWA Revision 1 was superseded before ratification.
 - TRS-TX-002-CPE Revision 2 is implemented and build-verified on codex/trs-tx-002-cpe; physical two-animal acceptance remains pending.
+- TRS-TX-002-CPE Revision 3 is proposed and ready for Michael's ratification; no Revision 3 behavior has been implemented.
 
 Next field action:
 - Preserve the currently working cable and adapter arrangement.
 - Michael may field-accept TRS-TX-001-EUI.
-- Complete implementation, automated verification, Android build, and two-animal field acceptance testing for TRS-TX-002-CPE Revision 2.
+- Michael may ratify, revise, or reject TRS-TX-002-CPE Revision 3.
 
 Physical wiring rule:
 - The installed cable and adapter arrangement is operationally proven. Preserve it as the known-good configuration.
@@ -443,3 +535,5 @@ Physical wiring rule:
 - Michael ratified and assigned TRS-TX-002-CPE Revision 2; implementation began on codex/trs-tx-002-cpe.
 - Implemented version 0.5.0 / versionCode 6 at commit 7e75e9faa6cfc48db93b3ebd882b49fd7c803890 with protected two-position state, SellEton parsing and stable-weight latching, durable encounter records, operator-entered treatment/procedure details, and JSON/CSV export; build and field verification remain pending.
 - GitHub Actions run 36769477659 passed testDebugUnitTest and assembleDebug on Gradle 8.5, producing the 0.5.0 debug APK; physical two-animal field verification remains pending.
+- Field evidence 25994.jpg established the actual two-antenna prototype: a scale-zone antenna on the left and a low-power loose-tag commissioning antenna above the right-side work desk.
+- Proposed TRS-TX-002-CPE Revision 3 for provisional untagged encounters, desk-based UHF reservation/installation, independently configurable antenna roles and power, and zone diagnostics.
