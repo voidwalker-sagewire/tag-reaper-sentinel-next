@@ -252,8 +252,9 @@ Reason: Michael clarified that weighing is one step inside a broader cattle-proc
 
 WORK ORDER: TRS-TX-002-CPE
 Title: Cattle Processing Sessions and Animal Encounters
-Revision: 1
-State: PROPOSED — physical station-flow clarification required before ratification
+Revision: 2
+Previous revision: Revision 1 superseded before ratification when OD-001 was resolved
+State: PROPOSED — READY FOR RATIFICATION
 Proposed: 2026-09-30
 Authority required: Michael ratification and assignment
 Target base: codex/trs-tx-001-eui after TRS-TX-001-EUI verification
@@ -280,12 +281,22 @@ Example session templates captured from Michael's field description:
 Proposed field workflow:
 1. Operator creates a ProcessingSession from a template or custom purpose.
 2. Planned checklist items are copied into the session without marking any animal treated.
-3. An EPC scan creates or selects an AnimalEncounter.
-4. The SellEton stream supplies a stable WeightEvent to the animal currently occupying the weigh stage.
-5. The encounter advances into the treatment/procedure stage while retaining its identity and weight.
-6. The operator records each planned item as COMPLETED, SKIPPED, NOT APPLICABLE, or HELD, with actual details where applicable.
-7. The operator records destination/disposition and completes the encounter.
-8. The session maintains a visible queue of waiting, weighed, in-process, held, and completed animals.
+3. The single incoming animal enters the scale position and is scanned there; that EPC creates the AnimalEncounter occupying the ON_SCALE slot.
+4. The SellEton stream supplies a stable WeightEvent only to the encounter occupying ON_SCALE.
+5. The operator advances that locked encounter into the IN_HEAD_CHUTE slot without changing its identity or weight.
+6. The next incoming animal may then be scanned and weighed in ON_SCALE while the prior animal remains protected in IN_HEAD_CHUTE.
+7. Veterinary services, treatments, procedures, observations, and notes attach only to the encounter occupying IN_HEAD_CHUTE.
+8. The operator records each planned item as COMPLETED, SKIPPED, NOT APPLICABLE, or HELD, with actual details where applicable.
+9. The operator records destination/disposition and completes/releases the head-chute encounter.
+10. The session retains completed and held encounters and keeps both live stage slots visibly identified.
+
+Two-position pipeline:
+- ON_SCALE: at most one incoming animal; EPC acquisition and stable weight capture occur here.
+- IN_HEAD_CHUTE: at most one previously weighed animal; veterinary services are recorded here.
+- The two slots may be occupied by different animals at the same time.
+- Advancing ON_SCALE to IN_HEAD_CHUTE is blocked while IN_HEAD_CHUTE is occupied.
+- A new scan can never replace either occupied slot.
+- The head-chute screen always displays the animal's EPC, visual identity when available, and captured weight above the treatment checklist.
 
 Identity and association safety rules:
 - Weight and treatment records attach to an explicit AnimalEncounter, never merely to the most recently seen tag.
@@ -293,7 +304,7 @@ Identity and association safety rules:
 - Zero EPCs creates an unmatched exception; no silent animal assignment.
 - Multiple EPCs create an ambiguous exception; the operator must resolve or reject it.
 - A new EPC cannot overwrite the active animal encounter.
-- If more than one animal can occupy different physical stages simultaneously, the app must support separate stage slots or a queue so Animal A's treatment cannot be attached to Animal B's weight.
+- The app must maintain separate ON_SCALE and IN_HEAD_CHUTE slots so Animal A's treatment cannot be attached to Animal B's weight.
 - Raw scale and RFID evidence remain attached for audit and troubleshooting.
 
 ProcessingSession record:
@@ -360,7 +371,7 @@ Acceptance evidence:
 4. Each animal's planned items remain incomplete until individually recorded.
 5. Zero-tag and multiple-tag conditions cannot silently create a matched record.
 6. Two consecutive animals cannot exchange weights, treatments, or dispositions.
-7. If two physical stages can be occupied simultaneously, a two-animal pipeline test preserves both identities correctly.
+7. A two-animal pipeline test preserves Animal A in IN_HEAD_CHUTE while Animal B is scanned and weighed in ON_SCALE, with no exchanged weights, treatments, or dispositions.
 8. Completed and held encounters survive force-stop/reopen and session restore.
 9. JSON and CSV exports contain the session, animal identity, weight, treatment/procedure status, timestamps, operator, destination, and raw evidence.
 10. Android build and automated tests pass before field installation.
@@ -373,9 +384,9 @@ Explicit exclusions:
 - No removal of Scale Debug.
 - No claim of legal-for-trade weighing certification.
 
-OPEN DECISION OD-001 — Physical station concurrency
-Question: Can one animal be receiving treatment in the head chute while the next animal is already standing on the scale, or can only one animal occupy the full processing path at a time?
-Impact: determines whether Revision 1 needs a two-stage live pipeline or a simpler single-active-animal workflow.
+DECISION OD-001 — Physical station concurrency
+State: RESOLVED by Michael on 2026-09-30
+Decision: An animal is scanned only when it enters the scale position, is weighed there, then moves forward into the head chute for veterinary services. The next animal may then move onto the scale. Sentinel therefore requires separate ON_SCALE and IN_HEAD_CHUTE live encounter slots.
 
 ⊞ BLOCK 11 — PLANNED FOLLOW-ON WORK
 
@@ -391,12 +402,12 @@ Current authorized state:
 - Core UART initialization and receive are proven on the physical reader.
 - TRS-TX-001-EUI is VERIFIED; FIELD ACCEPTED remains Michael's decision.
 - TRS-TX-002-RWA Revision 1 was superseded before ratification.
-- TRS-TX-002-CPE Revision 1 is PROPOSED and awaits OD-001 clarification before ratification.
+- TRS-TX-002-CPE Revision 2 is PROPOSED and READY FOR RATIFICATION.
 
 Next field action:
 - Preserve the currently working cable and adapter arrangement.
 - Michael may field-accept TRS-TX-001-EUI.
-- Michael should answer OD-001 so TRS-TX-002-CPE can be finalized for ratification.
+- Michael may ratify TRS-TX-002-CPE Revision 2 as written, ratify with revisions, or reject it.
 
 Physical wiring rule:
 - The installed cable and adapter arrangement is operationally proven. Preserve it as the known-good configuration.
@@ -423,3 +434,5 @@ Physical wiring rule:
 - Michael clarified that weighing belongs inside a broader cattle-processing/treatment encounter.
 - Superseded TRS-TX-002-RWA before ratification and proposed TRS-TX-002-CPE Revision 1.
 - Recorded OD-001 to determine whether the physical workflow requires simultaneous weigh and treatment stage slots.
+- Michael resolved OD-001: scan and weigh occur at the scale, then the animal advances to the head chute while the next animal may enter the scale position.
+- Revised TRS-TX-002-CPE to Revision 2 with protected ON_SCALE and IN_HEAD_CHUTE live encounter slots; proposal is ready for ratification.
