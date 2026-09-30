@@ -247,75 +247,135 @@ Verification conclusion:
 WORK ORDER: TRS-TX-002-RWA
 Title: Associate stable livestock weights with RFID records
 Revision: 1
-State: PROPOSED
+State: SUPERSEDED BEFORE RATIFICATION by TRS-TX-002-CPE Revision 1
+Reason: Michael clarified that weighing is one step inside a broader cattle-processing and treatment session, not the organizing session itself.
+
+WORK ORDER: TRS-TX-002-CPE
+Title: Cattle Processing Sessions and Animal Encounters
+Revision: 1
+State: PROPOSED — physical station-flow clarification required before ratification
 Proposed: 2026-09-30
 Authority required: Michael ratification and assignment
 Target base: codex/trs-tx-001-eui after TRS-TX-001-EUI verification
 
 Objective:
-- Combine the proven scale stream and RFID inventory stream into one auditable livestock weigh record without weakening the working reader or raw diagnostic path.
+- Extend the existing Sentinel session into an auditable cattle-processing session in which every animal receives its own encounter record containing identity, weight, treatments, procedures, observations, notes, and disposition.
 
-Proposed operating flow:
-1. Operator starts or resumes a Sentinel session and enters Weigh Mode.
-2. The configured chute antenna observes the animal EPC.
-3. The scale parser receives SellEton ASCII frames and recognizes stable/gross/net/sign/value/unit fields.
-4. A candidate weight is locked only after three stable frames agree within one scale division.
-5. The app associates the candidate with one recently observed chute EPC.
-6. The app presents EPC, matched HerdMate animal, weight, unit, antenna, and timestamp for operator acceptance.
-7. Accepted records are stored with the session and survive app closure.
+Domain structure:
+- ProcessingSession: the group operation performed on a date, such as purchased-calf arrival processing, weaning, sorting/turnout, bull examination, scheduled herd work, veterinary sick call, or a custom purpose.
+- AnimalEncounter: one animal's passage through that session from identification through completion or hold.
+- WeightEvent: a scale observation attached to one AnimalEncounter.
+- TreatmentEvent: a product or treatment actually administered to one AnimalEncounter.
+- ProcedureEvent: a non-drug procedure, examination, measurement, tagging action, or result attached to one AnimalEncounter.
+- DispositionEvent: where the animal went or what happened after processing, including pasture, pen/group, return, hold, isolation, or another operator-defined destination.
 
-Association safety rules:
-- Exactly one eligible chute EPC in the association window permits automatic staging.
-- Zero EPCs produces an UNMATCHED WEIGHT candidate; no silent assignment.
-- Multiple EPCs produce an AMBIGUOUS candidate; the operator must choose or reject.
-- Never choose an animal solely by strongest RSSI when multiple eligible tags are present.
-- A new stable weight must not overwrite an earlier accepted record.
-- Raw scale frame and RFID evidence remain attached for audit and troubleshooting.
+Example session templates captured from Michael's field description:
+- Purchased Calf Arrival Processing: identify/tag, scan, weigh, planned treatments, then pasture destination.
+- Weaning: identify, weigh when required, perform the ranch's weaning protocol, record completion and destination group.
+- Separation / Turnout: identify, sort, assign group or field, and record movement.
+- Bull Examination: identify, weight when required, scrotal examination/measurement, other examination results, and disposition.
+- Illness / Injury / Veterinary Visit: identify, observations, diagnosis supplied by the responsible person, treatments, notes, follow-up, and disposition.
+- Custom Processing Session: operator-defined checklist and fields.
 
-Proposed data record:
-- weightEventId UUID
-- sessionId
-- epc
-- matched animal identifier when available
-- weight value normalized to pounds
-- original numeric value and unit
-- stable flag
-- gross/net status
-- sign
-- raw scale frame
-- scale timestamp
-- accepted timestamp
-- antenna identifier
-- RFID first/last seen timestamps within the association window
-- RFID read count and strongest RSSI within that window
-- association state: MATCHED, UNMATCHED, AMBIGUOUS, REJECTED
-- operator acceptance state and operator identity
+Proposed field workflow:
+1. Operator creates a ProcessingSession from a template or custom purpose.
+2. Planned checklist items are copied into the session without marking any animal treated.
+3. An EPC scan creates or selects an AnimalEncounter.
+4. The SellEton stream supplies a stable WeightEvent to the animal currently occupying the weigh stage.
+5. The encounter advances into the treatment/procedure stage while retaining its identity and weight.
+6. The operator records each planned item as COMPLETED, SKIPPED, NOT APPLICABLE, or HELD, with actual details where applicable.
+7. The operator records destination/disposition and completes the encounter.
+8. The session maintains a visible queue of waiting, weighed, in-process, held, and completed animals.
+
+Identity and association safety rules:
+- Weight and treatment records attach to an explicit AnimalEncounter, never merely to the most recently seen tag.
+- Exactly one eligible EPC at the weigh stage permits automatic staging.
+- Zero EPCs creates an unmatched exception; no silent animal assignment.
+- Multiple EPCs create an ambiguous exception; the operator must resolve or reject it.
+- A new EPC cannot overwrite the active animal encounter.
+- If more than one animal can occupy different physical stages simultaneously, the app must support separate stage slots or a queue so Animal A's treatment cannot be attached to Animal B's weight.
+- Raw scale and RFID evidence remain attached for audit and troubleshooting.
+
+ProcessingSession record:
+- sessionId UUID
+- name, purpose/template, site, date/time, operator, veterinarian when present, herd/group, notes
+- planned checklist/protocol snapshot
+- default destination when configured
+- GPS/weather context already supported by Sentinel
+- encounter counts by waiting, in process, held, completed, and skipped
+
+AnimalEncounter record:
+- encounterId UUID and sessionId
+- EPC, visual tag, matched HerdMate animal identifier, and lookup evidence
+- entered/scanned/weighed/treatment-started/completed timestamps
+- workflow stage and exception state
+- WeightEvent list
+- TreatmentEvent list
+- ProcedureEvent list
+- observations and notes
+- DispositionEvent
+- created by, completed by, and correction/audit fields
+
+WeightEvent minimum fields:
+- eventId, encounterId, EPC, value normalized to pounds, original value/unit
+- stable flag, gross/net status, sign, raw scale frame, timestamp
+- antenna, RFID time window, read count, strongest RSSI, and association state
+
+TreatmentEvent minimum fields:
+- eventId, encounterId, planned checklist item identifier
+- status: COMPLETED, SKIPPED, NOT_APPLICABLE, HELD
+- product/treatment name entered or selected by the operator
+- actual amount and unit when recorded
+- route/site when recorded
+- lot/serial and expiration when recorded
+- administration timestamp and administered-by identity
+- withdrawal/end date when supplied by the responsible operator or veterinarian
+- notes and correction/audit fields
+
+ProcedureEvent minimum fields:
+- eventId, encounterId, procedure/exam name, status, result
+- measurement name/value/unit when applicable, including scrotal measurement where used
+- performed timestamp, performed-by identity, notes, and correction/audit fields
+
+Clinical boundary:
+- Sentinel records what the ranch operator or veterinarian planned and actually performed.
+- Sentinel does not recommend drugs, doses, routes, withdrawal periods, diagnoses, or treatment protocols.
+- Templates are operator-controlled records, not medical advice.
 
 Proposed implementation scope:
-- Extract the working module-10 serial logic into a reusable scale component while preserving Scale Debug.
-- Add a tested SellEton frame parser for the observed ST,GS,+ 125lb format and documented variants.
-- Add a Weigh Mode panel to the main Sentinel screen.
-- Add per-session WeightEvent persistence and restore support.
-- Advance session JSON schema from 0.7 to 0.8 with backward-compatible loading.
-- Include accepted weight events in JSON and CSV exports.
-- Display accepted weights in session history and tag/animal detail.
-- Preserve existing RFID, animal lookup, GPS, weather, and antenna-power behavior.
+- Generalize the existing RFID session UI and schema into ProcessingSession plus AnimalEncounter records.
+- Preserve backward-compatible loading of existing schema 0.7 sessions.
+- Extract the proven module-10 serial logic into a reusable scale component while retaining Scale Debug.
+- Add a tested parser for observed SellEton frames such as ST,GS,+ 125lb and documented variants.
+- Add a stage/queue interface suited to the actual physical cattle flow.
+- Add operator-controlled session templates and per-animal checklists.
+- Persist active sessions, encounter queues, accepted weights, treatments, procedures, and dispositions through force-stop/reopen.
+- Include complete encounter records in JSON and CSV export.
+- Preserve existing RFID, animal lookup, GPS, weather, antenna power, history, and raw evidence behavior.
 
 Acceptance evidence:
-1. Existing RFID inventory and Scale Debug regression tests pass.
-2. Stable 125 lb input parses as stable, gross, positive, 125 pounds.
-3. One eligible EPC plus a stable weight stages the correct combined record.
-4. Zero and multiple EPC cases cannot silently create a matched record.
-5. Operator can accept or reject a staged record.
-6. Accepted record survives force-stop/reopen and session restore.
-7. JSON and CSV exports contain EPC, animal identity when available, weight, timestamp, antenna, and raw evidence.
-8. Android build and automated tests pass before field installation.
+1. Existing RFID inventory and Scale Debug regressions pass.
+2. Stable 125 lb input parses and attaches only to the intended encounter.
+3. A purchased-calf processing template can include weigh plus operator-defined treatment items and destination.
+4. Each animal's planned items remain incomplete until individually recorded.
+5. Zero-tag and multiple-tag conditions cannot silently create a matched record.
+6. Two consecutive animals cannot exchange weights, treatments, or dispositions.
+7. If two physical stages can be occupied simultaneously, a two-animal pipeline test preserves both identities correctly.
+8. Completed and held encounters survive force-stop/reopen and session restore.
+9. JSON and CSV exports contain the session, animal identity, weight, treatment/procedure status, timestamps, operator, destination, and raw evidence.
+10. Android build and automated tests pass before field installation.
 
 Explicit exclusions:
-- No HerdMate write-back or cloud synchronization.
+- No veterinary diagnosis, medication, dosage, route, withdrawal, or treatment recommendations.
+- No automatic marking of a planned treatment as administered.
+- No HerdMate write-back or cloud synchronization in this work order.
 - No automatic assignment when multiple cattle tags are in range.
-- No removal of the Scale Debug evidence screen.
+- No removal of Scale Debug.
 - No claim of legal-for-trade weighing certification.
+
+OPEN DECISION OD-001 — Physical station concurrency
+Question: Can one animal be receiving treatment in the head chute while the next animal is already standing on the scale, or can only one animal occupy the full processing path at a time?
+Impact: determines whether Revision 1 needs a two-stage live pipeline or a simpler single-active-animal workflow.
 
 ⊞ BLOCK 11 — PLANNED FOLLOW-ON WORK
 
@@ -330,12 +390,13 @@ Current authorized state:
 - Implementation and build verification are complete on codex/trs-tx-001-eui.
 - Core UART initialization and receive are proven on the physical reader.
 - TRS-TX-001-EUI is VERIFIED; FIELD ACCEPTED remains Michael's decision.
-- TRS-TX-002-RWA Revision 1 is PROPOSED and is not authorized for implementation.
+- TRS-TX-002-RWA Revision 1 was superseded before ratification.
+- TRS-TX-002-CPE Revision 1 is PROPOSED and awaits OD-001 clarification before ratification.
 
 Next field action:
 - Preserve the currently working cable and adapter arrangement.
 - Michael may field-accept TRS-TX-001-EUI.
-- Michael may ratify TRS-TX-002-RWA as written, ratify it with revisions, or reject it.
+- Michael should answer OD-001 so TRS-TX-002-CPE can be finalized for ratification.
 
 Physical wiring rule:
 - The installed cable and adapter arrangement is operationally proven. Preserve it as the known-good configuration.
@@ -359,3 +420,6 @@ Physical wiring rule:
 - Field test confirmed stop/start serial recovery without reboot and successful RFID scanning afterward.
 - Advanced TRS-TX-001-EUI Revision 1 to VERIFIED; field acceptance remains Michael's decision.
 - Proposed TRS-TX-002-RWA Revision 1 for auditable RFID/weight association and session persistence.
+- Michael clarified that weighing belongs inside a broader cattle-processing/treatment encounter.
+- Superseded TRS-TX-002-RWA before ratification and proposed TRS-TX-002-CPE Revision 1.
+- Recorded OD-001 to determine whether the physical workflow requires simultaneous weigh and treatment stage slots.
