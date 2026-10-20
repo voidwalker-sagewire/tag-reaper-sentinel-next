@@ -546,3 +546,11 @@ Physical wiring rule:
 - Michael ratified and assigned TRS-TX-002-CPE Revision 3; implementation began on codex/trs-tx-002-cpe.
 - Implemented Revision 3 at ac2c1164c1421f0794b3a97d6518177108d3dfba as version 0.6.0 / versionCode 7 with provisional untagged encounters, visual-tag capture, reserved/installed/canceled UHF lifecycle, independently configurable SCALE_ZONE and TAG_DESK antenna roles and power, antenna-based RFID routing, no-record zone diagnostics, persistence, and expanded JSON/CSV evidence.
 - GitHub Actions run 36775867553 passed testDebugUnitTest and assembleDebug on Gradle 8.5 and produced the 0.6.0 debug APK; physical field verification remains pending.
+
+
+BUILD MAINTENANCE PREPARATION — 2026-10-20
+BUILD-STAB-20261020: owner authorized preparation of Ubuntu 24.04 runner pins.
+Record: docs/maintenance/BUILD-STABILIZATION-2026-10-20.md
+Prepared against codex/sentinel-next-field-repair-r1 at cabc9ac722e52ace59e4e6e836b8c9c28e6d9c99.
+This maintenance branch is pending review/merge; no release, deployment, or field
+acceptance is implied. Existing product states and work orders remain authoritative.
