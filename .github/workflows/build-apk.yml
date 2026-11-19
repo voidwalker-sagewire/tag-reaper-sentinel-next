@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -25,7 +25,21 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: 8.5
+          gradle-version: "8.14.7"
+
+      - name: Check recovered R1 repair logic
+        shell: bash
+        run: |
+          set -euo pipefail
+          check_dir="$(mktemp -d)"
+          trap 'rm -rf "$check_dir"' EXIT
+          javac -d "$check_dir" \
+            field-repair/tests/Handler.java \
+            field-repair/tests/SellEtonFrameParser.java \
+            field-repair/tests/StableWeightLatch.java \
+            field-repair/src/com/herdmate/tagreapersentinel/LiveRefreshGate.java \
+            field-repair/tests/RepairChecks.java
+          java -cp "$check_dir" com.herdmate.tagreapersentinel.RepairChecks
 
       - name: Test and build debug APK
         run: gradle testDebugUnitTest assembleDebug --no-daemon
